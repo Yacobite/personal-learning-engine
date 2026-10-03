@@ -31,9 +31,9 @@ test('upgrades an M0 ledger without changing migration 1 and applies migration 2
     database.prepare('INSERT INTO schema_migrations VALUES (?, ?, ?, ?)')
       .run(1, 'migration-ledger', originalChecksum, '2026-10-03T12:00:00.000Z');
     const before = database.prepare('SELECT * FROM schema_migrations WHERE version = ?').get(1);
-    applyMigrations(database);
+    applyMigrations(database, migrations.slice(0, 2));
     const ledger = database.prepare('SELECT * FROM schema_migrations ORDER BY version').all();
-    applyMigrations(database);
+    applyMigrations(database, migrations.slice(0, 2));
     assert.deepEqual(database.prepare('SELECT * FROM schema_migrations WHERE version = ?').get(1), before);
     assert.deepEqual(database.prepare('SELECT * FROM schema_migrations ORDER BY version').all(), ledger);
     assert.deepEqual(ledger.map((row) => row.version), [1, 2]);

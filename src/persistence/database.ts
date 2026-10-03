@@ -5,6 +5,7 @@ import type { FoundationStatus } from '../domain/foundation-status.ts';
 import type { FoundationStore } from '../ports/foundation-store.ts';
 import { applyMigrations } from './migrations.ts';
 import { SqliteCourseRepository } from './course-repository.ts';
+import { SqliteSourceRepository } from './source-repository.ts';
 
 function resolveDatabasePath(workspaceRoot: string): string {
   const root = realpathSync(workspaceRoot);
@@ -24,12 +25,14 @@ function resolveDatabasePath(workspaceRoot: string): string {
 
 export class SqliteFoundationStore implements FoundationStore {
   readonly courses: SqliteCourseRepository;
+  readonly sources: SqliteSourceRepository;
   private readonly database: DatabaseSync;
   private closed = false;
 
   constructor(database: DatabaseSync) {
     this.database = database;
     this.courses = new SqliteCourseRepository(database);
+    this.sources = new SqliteSourceRepository(database);
   }
 
   readStatus(): FoundationStatus {

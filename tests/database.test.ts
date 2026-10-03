@@ -11,7 +11,7 @@ test('initializes the canonical database and survives reopening without reapplyi
   const workspace = mkdtempSync(join(tmpdir(), 'learning-m0-db-'));
   try {
     const store = openLearningDatabase(workspace);
-    assert.equal(store.readStatus().schemaVersion, 2);
+    assert.equal(store.readStatus().schemaVersion, migrations.length);
     assert.match(store.readStatus().sqliteVersion, /^\d+\.\d+\.\d+$/);
     assert.equal(typeof store.readStatus().fts5Available, 'boolean');
     store.close();
@@ -20,14 +20,15 @@ test('initializes the canonical database and survives reopening without reapplyi
     assert.ok(existsSync(path));
     const before = new DatabaseSync(path);
     const originalLedger = before.prepare('SELECT * FROM schema_migrations').all();
-    assert.equal(originalLedger.length, 2);
-    assert.deepEqual(before.prepare(
+    assert.equal(originalLedger.length, migrations.length);
+    const tables = before.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
-    ).all().map((row) => row.name), ['courses', 'schema_migrations']);
+    ).all().map((row) => row.name);
+    for (const table of ['courses', 'schema_migrations', 'sources', 'source_versions', 'source_segments', 'source_segments_fts']) assert.ok(tables.includes(table));
     before.close();
 
     const reopened = openLearningDatabase(workspace);
-    assert.equal(reopened.readStatus().schemaVersion, 2);
+    assert.equal(reopened.readStatus().schemaVersion, migrations.length);
     reopened.close();
     const after = new DatabaseSync(path);
     assert.deepEqual(after.prepare('SELECT * FROM schema_migrations').all(), originalLedger);
@@ -42,20 +43,20 @@ test('applies a pending migration once and rolls back failed migration SQL and l
   try {
     applyMigrations(database);
     const next = [...migrations, {
-      version: 3, name: 'test-fixture', sql: 'CREATE TABLE test_fixture (id INTEGER PRIMARY KEY);',
+      version: migrations.length + 1, name: 'test-fixture', sql: 'CREATE TABLE test_fixture (id INTEGER PRIMARY KEY);',
     }];
     applyMigrations(database, next);
     applyMigrations(database, next);
-    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()?.count, 3);
+    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()?.count, next.length);
     assert.throws(() => applyMigrations(database, [...next, {
-      version: 4,
+      version: next.length + 1,
       name: 'test-failure',
       sql: 'CREATE TABLE rollback_fixture (id INTEGER); INVALID SQL;',
     }]));
     assert.equal(database.prepare(
       "SELECT name FROM sqlite_master WHERE name = 'rollback_fixture'",
     ).get(), undefined);
-    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()?.count, 3);
+    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()?.count, next.length);
   } finally {
     database.close();
   }

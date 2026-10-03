@@ -33,6 +33,58 @@ export const migrations: readonly Migration[] = [
       updated_at TEXT NOT NULL
     ) STRICT;`,
   },
+  {
+    version: 3,
+    name: 'versioned-sources-and-fts',
+    sql: `CREATE TABLE sources (
+      id TEXT PRIMARY KEY NOT NULL CHECK (
+        id GLOB 'source-????????-????-4???-[89ab]???-????????????'
+        AND substr(id, 8) NOT GLOB '*[^0-9a-f-]*'
+        AND length(replace(substr(id, 8), '-', '')) = 32
+      ),
+      course_id TEXT NOT NULL REFERENCES courses(id),
+      identity_key TEXT NOT NULL CHECK (length(trim(identity_key)) > 0),
+      kind TEXT NOT NULL CHECK (kind IN ('pdf','pptx','markdown','text','web','youtube')),
+      title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+      origin TEXT NOT NULL CHECK (origin IN ('learner_file','learner_url')),
+      current_version INTEGER NOT NULL CHECK (current_version > 0),
+      status TEXT NOT NULL CHECK (status IN ('ready','ready_with_warnings','extraction_incomplete','failed','transcript_unavailable')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(course_id, identity_key),
+      FOREIGN KEY (id, current_version) REFERENCES source_versions(source_id, version) DEFERRABLE INITIALLY DEFERRED
+    ) STRICT;
+    CREATE TABLE source_versions (
+      source_id TEXT NOT NULL REFERENCES sources(id),
+      version INTEGER NOT NULL CHECK (version > 0),
+      content_hash TEXT NOT NULL CHECK (length(content_hash) = 64 AND content_hash NOT GLOB '*[^0-9a-f]*'),
+      location TEXT NOT NULL,
+      ingested_at TEXT NOT NULL,
+      origin TEXT NOT NULL CHECK (origin IN ('learner_file','learner_url')),
+      title TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('ready','ready_with_warnings','extraction_incomplete','failed','transcript_unavailable')),
+      parser TEXT NOT NULL,
+      warnings_json TEXT NOT NULL CHECK (json_valid(warnings_json)),
+      metadata_json TEXT NOT NULL CHECK (json_valid(metadata_json)),
+      PRIMARY KEY(source_id, version),
+      UNIQUE(source_id, content_hash)
+    ) STRICT;
+    CREATE TABLE source_segments (
+      id TEXT PRIMARY KEY NOT NULL,
+      source_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      segment_order INTEGER NOT NULL CHECK (segment_order >= 0),
+      text TEXT NOT NULL,
+      heading_path_json TEXT NOT NULL CHECK (json_valid(heading_path_json)),
+      anchor_json TEXT NOT NULL CHECK (json_valid(anchor_json)),
+      visual_refs_json TEXT NOT NULL CHECK (json_valid(visual_refs_json)),
+      FOREIGN KEY(source_id, version) REFERENCES source_versions(source_id, version),
+      UNIQUE(source_id, version, segment_order)
+    ) STRICT;
+    CREATE VIRTUAL TABLE source_segments_fts USING fts5(text, segment_id UNINDEXED, tokenize='unicode61');
+    CREATE INDEX sources_by_course ON sources(course_id);
+    CREATE INDEX segments_by_version ON source_segments(source_id, version, segment_order);`,
+  },
 ];
 
 function checksum(migration: Migration): string {

@@ -5,3 +5,7 @@ coverage/
 *.tsbuildinfo
 .env
 .env.*
+# Private learner-provided learning material
+sources/inbox/*
+!sources/inbox/.gitkeep
+sources/courses/

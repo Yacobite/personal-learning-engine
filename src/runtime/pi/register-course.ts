@@ -2,22 +2,9 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { CourseError } from '../../domain/course.ts';
 import type { CourseService } from '../../services/course-service.ts';
 import type { CourseSession } from './course-session.ts';
+import { parseArguments } from './command-arguments.ts';
 
 const usage = 'Usage: /course new <mode> "title" "objective" | /course list | /course use <id> | /course current';
-
-/** Double-quoted strings use JSON escapes; unquoted tokens cannot contain spaces. */
-function parseArguments(args: string): string[] {
-  const tokens: string[] = [];
-  let rest = args.trim();
-  while (rest) {
-    const match = /^("(?:[^"\\]|\\.)*"|[^\s"]+)(?=\s|$)/.exec(rest);
-    if (!match?.[1]) throw new Error(usage);
-    const token = match[1];
-    tokens.push(token.startsWith('"') ? String(JSON.parse(token)) : token);
-    rest = rest.slice(token.length).trimStart();
-  }
-  return tokens;
-}
 
 export function registerCourse(
   pi: Pick<ExtensionAPI, 'registerCommand'>,

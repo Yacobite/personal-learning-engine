@@ -64,3 +64,20 @@ test('Pi runtime contains no SQL, database-driver imports or direct repository c
     inspect(source);
   }
 });
+
+test('parsers and input readers cannot import Pi, services, repositories or SQLite', () => {
+  for (const path of typescriptFiles(join(sourceRoot, 'ingestion'))) {
+    const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+    const inspect = (node: ts.Node): void => {
+      if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+        assert.doesNotMatch(node.moduleSpecifier.text, /pi-coding-agent|runtime|persistence|sqlite|repository|services/);
+      }
+      if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+        assert.ok(node.arguments[0] && ts.isStringLiteral(node.arguments[0]));
+        assert.doesNotMatch(node.arguments[0].text, /pi-coding-agent|runtime|persistence|sqlite|repository|services/);
+      }
+      ts.forEachChild(node, inspect);
+    };
+    inspect(source);
+  }
+});
