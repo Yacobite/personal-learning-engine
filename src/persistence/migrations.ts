@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
+import { curriculumMigration } from './migration-4.ts';
 
 export interface Migration {
   readonly version: number;
@@ -85,6 +86,7 @@ export const migrations: readonly Migration[] = [
     CREATE INDEX sources_by_course ON sources(course_id);
     CREATE INDEX segments_by_version ON source_segments(source_id, version, segment_order);`,
   },
+  curriculumMigration,
 ];
 
 function checksum(migration: Migration): string {

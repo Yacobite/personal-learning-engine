@@ -15,6 +15,11 @@ import { PptxParser } from '../../src/ingestion/pptx-parser.ts';
 import { TextParser } from '../../src/ingestion/text-parser.ts';
 import { WebParser } from '../../src/ingestion/web-parser.ts';
 import { YoutubeParser } from '../../src/ingestion/youtube-parser.ts';
+import { GraphService } from '../../src/services/graph-service.ts';
+import { ResearchService } from '../../src/services/research-service.ts';
+import { PythonDocsResearcher } from '../../src/research/official-docs.ts';
+import { PiCurriculumBuilder } from '../../src/runtime/pi/curriculum-builder.ts';
+import { registerCurriculum } from '../../src/runtime/pi/register-curriculum.ts';
 
 /** Composition root only: construct adapters and bind the session lifecycle. */
 export default function learningFoundation(pi: ExtensionAPI): void {
@@ -22,6 +27,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   let service: FoundationService | undefined;
   let courseService: CourseService | undefined;
   let sourceService: SourceService | undefined;
+  let graphService: GraphService | undefined;
+  let researchService: ResearchService | undefined;
+  let builder: PiCurriculumBuilder | undefined;
   const selection = new CourseSession();
 
   const close = (): void => {
@@ -31,6 +39,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     service = undefined;
     courseService = undefined;
     sourceService = undefined;
+    graphService = undefined;
+    researchService = undefined;
+    builder = undefined;
   };
 
   pi.on('session_start', (_event, ctx) => {
@@ -41,6 +52,10 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     sourceService = new SourceService(courseService, store.sources, new ProjectSourceReader(ctx.cwd),
       [new PdfParser(), new PptxParser(), new TextParser(), new WebParser(), new YoutubeParser()],
       (bytes) => createHash('sha256').update(bytes).digest('hex'), () => `source-${randomUUID()}`);
+    graphService = new GraphService(courseService, store.graphs, store.sources, store.research,
+      () => `concept-${randomUUID()}`, () => new Date());
+    researchService = new ResearchService(courseService, store.research, new PythonDocsResearcher());
+    builder = new PiCurriculumBuilder(courseService, sourceService, graphService, researchService);
   });
   pi.on('session_shutdown', close);
   registerLearningStatus(pi, () => {
@@ -54,5 +69,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   registerSource(pi, () => {
     if (!sourceService || !courseService) throw new Error('Learning foundation session has not started.');
     return { sources: sourceService, courses: courseService, selection };
+  });
+  registerCurriculum(pi, () => {
+    if (!courseService || !graphService || !builder || !researchService) throw new Error('Curriculum session has not started.');
+    return { courses: courseService, selection, graphs: graphService, research: researchService, build: builder.build.bind(builder) };
   });
 }

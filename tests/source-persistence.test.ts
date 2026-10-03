@@ -51,7 +51,7 @@ test('M1 checkpoint upgrades additively with unchanged migration checksums, ledg
     applyMigrations(database);
     assert.deepEqual(database.prepare('SELECT * FROM schema_migrations WHERE version <= 2 ORDER BY version').all(), ledger);
     assert.deepEqual(database.prepare('SELECT * FROM courses').all(), courses);
-    assert.deepEqual(database.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version), [1, 2, 3]);
+    assert.deepEqual(database.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map((row) => row.version), migrations.map((migration) => migration.version));
   } finally { database.close(); }
 });
 test('real file ingestion survives restart with historical text and FTS; unchanged ingestion stays at the same version', async () => {

@@ -4,6 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { openLearningDatabase } from '../src/persistence/database.ts';
+import { CourseService } from '../src/services/course-service.ts';
+import { GraphService } from '../src/services/graph-service.ts';
 import {
   createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager,
 } from '@earendil-works/pi-coding-agent';
@@ -60,7 +64,7 @@ test('pinned Pi loads diagnostics and runs create → list → use → current; 
     await session.prompt('/learning-status');
     assert.deepEqual(errors, []);
     assert.equal(messages.length, 1);
-    assert.match(messages[0] ?? '', /^Learning foundation: schema v3; SQLite /);
+    assert.match(messages[0] ?? '', /^Learning foundation: schema v4; SQLite /);
     assert.ok(existsSync(join(workspace, '_learning', 'learning.db')));
     assert.ok(session.extensionRunner.getCommand('course'));
     assert.ok(session.extensionRunner.getCommand('source'));
@@ -97,6 +101,31 @@ test('pinned Pi loads diagnostics and runs create → list → use → current; 
     assert.match(messages.at(-1)!, /markdown section 1/);
     await session.prompt(`/source status ${sourceId}`);
     assert.match(messages.at(-1)!, /SHA-256/);
+    assert.ok(session.extensionRunner.getCommand('curriculum'));
+    await session.prompt('/curriculum list');
+    assert.match(messages.at(-1)!, /Active curriculum: none/);
+    const checkpoint = openLearningDatabase(workspace);
+    let conceptId: string;
+    try {
+      const graphs = new GraphService(new CourseService(checkpoint.courses, () => `course-${randomUUID()}`, () => new Date()),
+        checkpoint.graphs, checkpoint.sources, checkpoint.research, () => `concept-${randomUUID()}`, () => new Date());
+      const segment = checkpoint.sources.getVersion(id, sourceId, 1)!.segments[0]!;
+      const draft = graphs.createDraft(id, { nodes: [{ key: 'implication', title: 'Synthetic implication', type: 'concept', summary: 'Synthetic course concept.',
+        sourceRefs: [{ sourceId, version: 1, segmentId: `${sourceId}@1:${segment.order}` }], researchRefs: [] }], edges: [], rationale: 'Synthetic acceptance', uncertainty: [] });
+      conceptId = draft.nodes[0]!.conceptId;
+    } finally { checkpoint.close(); }
+    await session.prompt('/curriculum show 1');
+    assert.match(messages.at(-1)!, /Synthetic implication/);
+    await session.prompt('/curriculum validate 1');
+    assert.match(messages.at(-1)!, /Valid prerequisite DAG/);
+    await session.prompt('/curriculum list');
+    assert.match(messages.at(-1)!, /v1: draft/);
+    await session.prompt('/curriculum activate 999');
+    assert.match(messages.at(-1)!, /not found/);
+    await session.prompt('/curriculum activate 1');
+    assert.match(messages.at(-1)!, /Activated curriculum v1/);
+    await session.prompt(`/curriculum concept ${conceptId}`);
+    assert.match(messages.at(-1)!, /markdown section/);
     await session.prompt('/course use course-00000000-0000-4000-8000-000000000000');
     assert.match(messages.at(-1) ?? '', /not found/);
     await session.prompt('/course current');
@@ -114,6 +143,8 @@ test('pinned Pi loads diagnostics and runs create → list → use → current; 
     await session.prompt(`/course use ${id}`);
     await session.prompt('/source list');
     assert.match(messages.at(-1)!, new RegExp(sourceId));
+    await session.prompt('/curriculum list');
+    assert.match(messages.at(-1)!, /Active curriculum: v1/);
     await session.prompt('/source add sources/inbox/logic.md');
     assert.match(messages.at(-1)!, /^Unchanged .* v1/);
     assert.deepEqual(errors, []);

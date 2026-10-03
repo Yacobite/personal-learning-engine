@@ -1,6 +1,6 @@
-# Personal learning engine — M2 source ingestion and local retrieval
+# Personal learning engine — M3 curriculum and concept graphs
 
-This repository provides durable courses and versioned, locally searchable sources through Pi. M2 retrieves source material; teaching and learner-model features await later milestone approval.
+This repository provides durable courses, versioned sources, and inspectable curriculum graphs through Pi. Models propose curricula; deterministic services validate and save drafts. Teaching and learner-model features await later milestone approval.
 
 The authoritative product specification is [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md). Approved refinements and engineering choices are in [docs/APPROVED_DECISIONS.md](docs/APPROVED_DECISIONS.md).
 
@@ -144,4 +144,39 @@ Built-in SQLite avoids another database package and native Windows addon install
 
 Parser dependencies are pinned: `pdfjs-dist` 6.4.299 (Apache-2.0), `fflate` 0.8.3 and `htmlparser2` 12.0.0 (MIT). PDF.js's optional `@napi-rs/canvas` 1.0.10 includes a platform-specific native binary (Windows x64 MSVC 1.0.10 on the validated machine). Installation uses `--ignore-scripts`; no install scripts or local compiler are required. ZIP and HTML/XML parsing use portable JavaScript. Built-in Node APIs cover HTTP, files, hashing, SQLite and testing.
 
-The Pi SDK integration tests verify loading and course/source command flows without a terminal or model call. Terminal appearance and provider authentication are not exercised. Synchronous SQLite writes remain short application transactions; extraction/fetching is async outside them, though native PDF/PPTX parsing can occupy the local runtime. M2 is awaiting external review. M3 has not begun.
+The Pi SDK integration tests verify extension loading, course/source/curriculum commands, and restricted builder tools without live model calls. Terminal appearance and provider authentication are not exercised. Synchronous SQLite writes remain short application transactions; extraction/fetching is async outside them, though native PDF/PPTX parsing can occupy the local runtime. M2 is approved; M3 awaits external review.
+
+## Curriculum workflow
+
+Select a course, then use:
+
+```text
+/curriculum build
+/curriculum list
+/curriculum show <version>
+/curriculum validate <version>
+/curriculum concept <concept-id> [version]
+/curriculum prerequisites <concept-id> [version]
+/curriculum research [brief-id]
+/curriculum activate <version>
+```
+
+`build` requires a configured Pi model. It starts a separate in-memory SDK session with only evidence-reading and proposal-submission tools. No ambient extensions, MCP tools, context files, skills, shell or filesystem tools are loaded. Sources and previous curriculum text remain untrusted evidence. A validated proposal creates a draft; activation requires the explicit command. Tool calls are bounded to 60 per build and the model phase has a three-minute deadline. There is no live model/network dependency in portable tests.
+
+Concept IDs are stable course-owned identities, separate from version-specific titles and summaries. Rebuild proposals explicitly reuse IDs; no title matching or automatic merging occurs. Immutable graph content and provenance survive newer versions. Activation atomically updates the course's current pointer and records first activation time, preserving history. Source changes never regenerate or rewrite curricula automatically.
+
+Only `prerequisite_of` edges form a DAG. Other directed relationships may cycle. Node types describe concepts, definitions, procedures, representations, misconceptions, boundary cases and assessment objectives. An assessment objective is curriculum content, not a learner assessment result. Graph inspection includes incoming/outgoing relationships, direct prerequisites/dependents and deterministic prerequisite ordering. Compact display bounds its concept and relationship previews.
+
+Source-grounded builds use frozen M2 source versions and exact segment references. Concept inspection resolves their original typed anchors. Generated Python builds first retrieve and persist official research, then expose that evidence to the model. Failed references remain inspectable and cannot support nodes. Hybrid builds currently use ingested sources; the service/proposal contract also supports explicit mixed provenance.
+
+## Bounded M3 Python research
+
+Research is deliberately restricted to six fixed HTTPS URLs beneath `https://docs.python.org/3/tutorial/`: `introduction.html`, `controlflow.html`, `datastructures.html`, `modules.html`, `inputoutput.html` and `errors.html`. There is no crawl, browser, general web search or arbitrary-URL model tool. A generated course must identify Python in its title or objective for the Pi build path.
+
+Each document permits at most two redirects, all to another approved seed URL. Redirect loops and duplicate seed/final retrievals are rejected. The upper request budget is 18 connection attempts across six seeds. Every connection resolves and validates IPv4 addresses, rejects non-public ranges, pins the selected address through Node HTTPS's lookup callback, retains TLS verification and SNI for `docs.python.org`, and verifies the connected peer. IPv6 is intentionally unsupported in this small adapter. Credentials, other schemes/origins/ports/paths and query strings are rejected.
+
+Requests use GET with a fixed user agent and no cookies/authentication. Each document has a 15-second deadline spanning DNS, redirects and body consumption, a 2 MiB HTML response limit, a 16 KiB header limit, and identity encoding only. Scripts never execute. Retrieved titles, final URLs, timestamps, raw HTML hashes, normalized evidence text, authority role, status and notes are persisted separately from learner sources. Seed topic tags are retrieval hints; curriculum nodes contain the reviewed synthesized claims and reference associations. Successful retrieval establishes provenance, not the correctness of every model interpretation.
+
+Migration 4 adds relational curriculum and research tables. Migrations 1–3 and package dependencies remain unchanged. Application/domain logic is independent of Pi; only runtime adapters orchestrate SDK sessions, and SQLite adapters own SQL.
+
+Local acceptance is documented in [docs/M3_VALIDATION.md](docs/M3_VALIDATION.md). `node scripts/validate-curriculum.ts prepare` copies private Topic 0–2 PDFs into an ignored isolated workspace and performs live bounded Python retrieval. After inspecting evidence, put reviewed `logic-proposal.json` and `python-proposal.json` files in that workspace, then run `node scripts/validate-curriculum.ts complete <workspace>`. This acceptance harness submits proposals through the model-facing tool and verifies activation, rebuild identity, history and restart; it does not simulate a successful live Pi provider call.
