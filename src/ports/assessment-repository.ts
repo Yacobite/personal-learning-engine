@@ -1,6 +1,6 @@
 import type { AssessmentTask, Attempt, EvaluationResult, EvaluationWrite, EvidenceAudit } from '../domain/assessment.ts';
 export interface AssessmentRepository {
-    saveTask(task: AssessmentTask): void;
+    saveTask(task: AssessmentTask, link?: () => void): void;
     task(courseId: string, id: string): AssessmentTask | undefined;
     saveAttempt(attempt: Attempt): Attempt;
     attempt(courseId: string, id: string): Attempt | undefined;

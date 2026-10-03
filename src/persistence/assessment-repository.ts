@@ -2,8 +2,9 @@ import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { AssessmentError } from '../domain/assessment.ts';
 import type { AssessmentTask, Attempt, EvaluationResult, EvaluationWrite, EvidenceEvent, EvidenceAudit } from '../domain/assessment.ts';
 import type { AssessmentRepository } from '../ports/assessment-repository.ts';
+import type { DiagnosticLedger } from '../ports/diagnostic-ledger.ts';
 type Row = Record<string, SQLOutputValue>;
-export class SqliteAssessmentRepository implements AssessmentRepository {
+export class SqliteAssessmentRepository implements AssessmentRepository, DiagnosticLedger {
     private readonly db: DatabaseSync;
     constructor(db: DatabaseSync) { this.db = db; }
     private transaction<T>(run: () => T): T { this.db.exec('BEGIN IMMEDIATE'); try {
@@ -15,7 +16,7 @@ export class SqliteAssessmentRepository implements AssessmentRepository {
         this.db.exec('ROLLBACK');
         throw error;
     } }
-    saveTask(t: AssessmentTask): void {
+    saveTask(t: AssessmentTask, link?: () => void): void {
         this.transaction(() => {
             // Deferred child-to-snapshot keys allow inserting the immutable parent last.
             // Once it exists, seal triggers forbid adding further child metadata.
@@ -27,6 +28,7 @@ export class SqliteAssessmentRepository implements AssessmentRepository {
                 this.db.prepare('INSERT INTO task_research_provenance VALUES (?,?,?,?)').run(t.id, t.courseId, r.briefId, r.referenceId);
             this.db.prepare('INSERT INTO assessment_tasks(id,course_id,curriculum_version,type,representation,novelty,origin,prompt,dimensions_json,scoring_json,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
                 .run(t.id, t.courseId, t.curriculumVersion, t.type, t.representation, t.novelty, t.origin, t.prompt, JSON.stringify(t.intendedDimensions), JSON.stringify(t.scoring), t.createdAt);
+            link?.();
         });
     }
     task(courseId: string, id: string): AssessmentTask | undefined {
@@ -45,6 +47,12 @@ export class SqliteAssessmentRepository implements AssessmentRepository {
             ...(r.confidence === null ? {} : { confidence: Number(r.confidence) }), ...(r.latency_ms === null ? {} : { latencyMs: Number(r.latency_ms) }), ...(r.runtime_ref === null ? {} : { runtimeRef: String(r.runtime_ref) }), submittedAt: String(r.submitted_at), operationId: String(r.operation_id), requestHash: String(r.request_hash) };
     }
     attempt(courseId: string, id: string) { const row = this.db.prepare('SELECT * FROM assessment_attempts WHERE course_id=? AND id=?').get(courseId, id); return row ? this.mapAttempt(row) : undefined; }
+    attemptsForVersion(courseId: string, version: number): Attempt[] {
+        return this.db.prepare('SELECT a.* FROM assessment_attempts a JOIN assessment_tasks t ON t.id=a.task_id WHERE a.course_id=? AND t.curriculum_version=? ORDER BY a.submitted_at,a.id').all(courseId,version).map(r => this.mapAttempt(r));
+    }
+    evidenceForAttempt(courseId: string, attemptId: string): EvidenceEvent[] {
+        return this.db.prepare('SELECT * FROM evidence_events WHERE course_id=? AND attempt_id=? ORDER BY id').all(courseId,attemptId).map(r => ({id:String(r.id),courseId,attemptId,evaluationId:String(r.evaluation_id),createdAt:String(r.created_at)}));
+    }
     attemptOperation(courseId: string, key: string) { const row = this.db.prepare('SELECT * FROM assessment_attempts WHERE course_id=? AND operation_id=?').get(courseId, key); return row ? this.mapAttempt(row) : undefined; }
     saveAttempt(a: Attempt): Attempt {
         return this.transaction(() => {

@@ -25,7 +25,7 @@ export class AssessmentService {
         this.hash = hash;
         this.clock = clock;
     }
-    createTask(courseId: string, value: unknown): AssessmentTask {
+    createTask(courseId: string, value: unknown, link?: (task: AssessmentTask) => void): AssessmentTask {
         this.courses.getCourse(courseId);
         const input = validateTask(value);
         const version = input.curriculumVersion ?? this.graphs.current(courseId);
@@ -47,7 +47,7 @@ export class AssessmentService {
         if (!isAssessmentId(id, 'task'))
             throw new AssessmentError('Invalid generated task ID.');
         const task = { ...input, id, courseId, curriculumVersion: graph.version, createdAt: this.clock().toISOString() };
-        this.repo.saveTask(task);
+        this.repo.saveTask(task, link ? () => link(task) : undefined);
         return this.repo.task(courseId, id)!;
     }
     submit(courseId: string, key: string, value: unknown): Attempt {

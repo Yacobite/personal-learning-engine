@@ -54,7 +54,7 @@ test('migration 5 upgrades a populated M3 database without changing any historic
         applyMigrations(db);
         assert.deepEqual(db.prepare('SELECT * FROM schema_migrations WHERE version<=4 ORDER BY version').all(), ledger);
         assert.deepEqual(store.courses.getById(course.id), course);
-        assert.equal(store.readStatus().schemaVersion, 5);
+        assert.equal(store.readStatus().schemaVersion, 6);
     }
     finally {
         db.close();

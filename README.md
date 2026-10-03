@@ -207,4 +207,33 @@ Read-only Pi commands require the session's active course:
 
 These commands require no model credentials and expose no mutation tool. Submission/evaluation is currently an application API exercised by tests and explicit acceptance scripts; there is no teaching or assessment UI yet. Audit output identifies stored text as untrusted data and reconstructs task, response, assistance, evaluation policy/rationale, lineage and provenance links.
 
-[docs/M4_VALIDATION.md](docs/M4_VALIDATION.md) describes portable checks and isolated structural acceptance against the approved Logic graph. All acceptance performance data is synthetic. No mastery/readiness, gaps, review scheduling, diagnostics, teaching engine, web UI or OpenClaw is implemented. Migration 5 is additive; migrations 1–4 and dependencies remain unchanged.
+[docs/M4_VALIDATION.md](docs/M4_VALIDATION.md) describes portable checks and isolated structural acceptance against the approved Logic graph. All acceptance performance data is synthetic. At the M4 checkpoint there was no diagnostic process. Migration 5 is additive.
+
+## Diagnostic probing (M5)
+
+Diagnostics are durable, course-scoped sessions pinned to an immutable curriculum version. A deterministic policy selects a concept, a bounded proposal-only generator supplies a grounded task, and the actual submitted answer goes through M4's task/attempt/evaluation/evidence pipeline. Independent correctness provides provisional support or difficulty; assistance, AI-performed work, partial/unscored results and evaluation conflicts remain uncertain. Confidence never establishes competence. Representation, task type, novelty and assistance remain visible in the evidence audit.
+
+The selector follows prerequisites and dependents, accounts for branches and disconnected regions, and stops at a budget, sufficient direct coverage, a structurally bounded frontier, or no eligible candidates. A frontier is a set of recommended starting concepts, not inferred knowledge. Unprobed ancestors and descendants receive no fabricated evidence. Prior same-version attempts affect priority only; they cannot satisfy current-session coverage.
+
+Eligibility includes a deterministic check for usable context from the pinned curriculum's provenance. Concepts without usable evidence are excluded from candidate ranking for that step, without consuming a probe or creating performance records; they remain `not_probed`. If no probeable candidates remain, the session ends with `no_eligible_probe`. This says nothing about whether the learner knows those concepts. Context limits count up to six usable source references or four usable research references, so unusable early references do not hide valid later ones. Source context still takes priority in hybrid concepts. Provider/model errors remain transient: the session stays resumable and retry may select the same target. No persistent blacklist or automatic model retry loop is added.
+
+```text
+/diagnostic start [budget]
+/diagnostic status
+/diagnostic next
+/diagnostic submit probe-<UUID> {"response":"your answer","assistance":"none","hints":{"count":0,"highestLevel":"none","notes":null}}
+/diagnostic retry probe-<UUID>
+/diagnostic skip probe-<UUID>
+/diagnostic summary diagnostic-<UUID>
+/diagnostic audit diagnostic-<UUID>
+/diagnostic history
+/diagnostic abandon
+```
+
+Select an active course with an activated curriculum first. The default budget is 6, with an explicit range of 1–20. Starting again with the same budget resumes the existing session; a different budget conflicts. `next` returns an existing pending probe without generating another. Call `next` after each resolved or skipped probe to select again or finalize the session. Submitted JSON preserves spaces and symbols; use `\n` inside response strings for multiple lines. Assistance and hints describe what actually occurred; they are never inferred from confidence. Answers cannot be edited through replay: a changed submission conflicts with its original operation.
+
+`next` needs a configured Pi model only when generating a new task. Its separate in-memory session has exactly one proposal tool and no ambient extensions, skills, context files, shell, filesystem or evidence-writing tools. Context contains bounded excerpts for the selected node with exact source/research references. Sources take priority in hybrid graphs; generated courses use existing M3 research without new retrieval. The generator cannot select concepts or stop sessions. Proposals cannot alter identity, assistance, evidence or learner state. Expected answers remain in evaluator-only scoring fields; structural checks reject obvious answer-key markers, but semantic answer leakage and question quality still require scrutiny.
+
+M5 uses M4's deterministic text/choice/numeric/set graders. It does not grade open explanations. Submission feedback is neutral, without correctness, answers or teaching interventions. Final summaries are available after completion or abandonment. An abandoned session preserves history and produces no frontier recommendation. Completed summaries are immutable as-of snapshots; later M4 corrections remain visible through audit without rewriting that snapshot. M4 audit commands can still expose full assessment records when explicitly requested.
+
+Migration 6 adds diagnostic state and links; migrations 1–5 and package dependencies are unchanged. SQLite remains canonical. There is no durable mastery/readiness state, gap system, review scheduler, teaching engine, web UI or OpenClaw. See [docs/M5_VALIDATION.md](docs/M5_VALIDATION.md) for checks, limitations and isolated synthetic acceptance.
