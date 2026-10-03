@@ -27,6 +27,9 @@ import { registerEvidence } from '../../src/runtime/pi/register-evidence.ts';
 import { DiagnosticService } from '../../src/services/diagnostic-service.ts';
 import { DiagnosticContextBuilder } from '../../src/services/diagnostic-context.ts';
 import { registerDiagnostic } from '../../src/runtime/pi/register-diagnostic.ts';
+import { TeachingService } from '../../src/services/teaching-service.ts';
+import { registerTeaching } from '../../src/runtime/pi/register-teaching.ts';
+import { TeachingContextBuilder } from '../../src/services/teaching-context.ts';
 
 /** Composition root only: construct adapters and bind the session lifecycle. */
 export default function learningFoundation(pi: ExtensionAPI): void {
@@ -41,6 +44,7 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   let evaluations: EvaluationService | undefined;
   let evidence: EvidenceService | undefined;
   let diagnostics: DiagnosticService | undefined;
+  let teaching: TeachingService | undefined;
   const selection = new CourseSession();
 
   const close = (): void => {
@@ -57,6 +61,7 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     evaluations = undefined;
     evidence = undefined;
     diagnostics = undefined;
+    teaching = undefined;
   };
 
   pi.on('session_start', (_event, ctx) => {
@@ -78,6 +83,8 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     evidence = new EvidenceService(courseService, store.assessments, store.graphs);
     diagnostics = new DiagnosticService(store.diagnostics, store.assessments, graphService, assessments, evaluations,
       new DiagnosticContextBuilder(store.sources, store.research), (prefix) => `${prefix}-${randomUUID()}`, () => new Date());
+    teaching = new TeachingService(store.teaching, store.diagnostics, store.assessments, graphService, assessments, evaluations,
+      new TeachingContextBuilder(store.sources, store.research), (prefix) => `${prefix}-${randomUUID()}`, () => new Date());
   });
   pi.on('session_shutdown', close);
   registerLearningStatus(pi, () => {
@@ -104,4 +111,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     if (!courseService || !assessments || !diagnostics) throw new Error('Diagnostic session has not started.');
     return { courses: courseService, selection, assessments, diagnostics };
   });
+  registerTeaching(pi, () => {
+    if (!courseService || !assessments || !teaching) throw new Error('Teaching session has not started.');
+    return { courses: courseService, selection, assessments, teaching };
+  });
+
 }

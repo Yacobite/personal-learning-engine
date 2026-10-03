@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { curriculumMigration } from './migration-4.ts';
 import { assessmentMigration } from './migration-5.ts';
 import { diagnosticMigration } from './migration-6.ts';
+import { teachingMigration } from './migration-7.ts';
 
 export interface Migration {
   readonly version: number;
@@ -91,6 +92,7 @@ export const migrations: readonly Migration[] = [
   curriculumMigration,
   assessmentMigration,
   diagnosticMigration,
+  teachingMigration,
 ];
 
 function checksum(migration: Migration): string {

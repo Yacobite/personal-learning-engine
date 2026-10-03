@@ -84,16 +84,17 @@ test('parsers and input readers cannot import Pi, services, repositories or SQLi
 });
 
 test('M5 generator and deterministic evaluator cannot import repository or mutation services', () => {
-  for (const path of [join(sourceRoot, 'runtime', 'pi', 'diagnostic-generator.ts'), join(sourceRoot, 'evaluation', 'deterministic.ts')]) {
+  for (const path of [join(sourceRoot, 'runtime', 'pi', 'diagnostic-generator.ts'), join(sourceRoot, 'evaluation', 'deterministic.ts'), join(sourceRoot, 'runtime', 'pi', 'teaching-generator.ts')]) {
     const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
     const inspect = (node: ts.Node): void => {
       if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
-        assert.doesNotMatch(node.moduleSpecifier.text, /persistence|repository|assessment-service|evaluation-service|diagnostic-service/);
+        assert.doesNotMatch(node.moduleSpecifier.text, /persistence|repository|assessment-service|evaluation-service|diagnostic-service|teaching-service/);
       }
       ts.forEachChild(node, inspect);
     };
     inspect(source);
   }
   assert.doesNotMatch(readFileSync(join(sourceRoot, 'domain', 'diagnostic-policy.ts'), 'utf8'), /Date\(|Math\.random|fetch\(|process\./);
-  assert.equal(typescriptFiles(join(sourceRoot, 'services')).some(path => /teaching|mastery|review-scheduler|gap-service/.test(path)), false);
+  assert.doesNotMatch(readFileSync(join(sourceRoot, 'domain', 'teaching-policy.ts'), 'utf8'), /Date\(|Math\.random|fetch\(|process\./);
+  assert.equal(typescriptFiles(join(sourceRoot, 'services')).some(path => /mastery|review-scheduler|gap-service/.test(path)), false);
 });

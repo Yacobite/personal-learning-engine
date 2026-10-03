@@ -237,3 +237,31 @@ Select an active course with an activated curriculum first. The default budget i
 M5 uses M4's deterministic text/choice/numeric/set graders. It does not grade open explanations. Submission feedback is neutral, without correctness, answers or teaching interventions. Final summaries are available after completion or abandonment. An abandoned session preserves history and produces no frontier recommendation. Completed summaries are immutable as-of snapshots; later M4 corrections remain visible through audit without rewriting that snapshot. M4 audit commands can still expose full assessment records when explicitly requested.
 
 Migration 6 adds diagnostic state and links; migrations 1–5 and package dependencies are unchanged. SQLite remains canonical. There is no durable mastery/readiness state, gap system, review scheduler, teaching engine, web UI or OpenClaw. See [docs/M5_VALIDATION.md](docs/M5_VALIDATION.md) for checks, limitations and isolated synthetic acceptance.
+
+## M6 teaching
+
+Teaching is session-local instruction, not durable mastery. `/teach start` prefers a completed diagnostic from the same course/current curriculum; an explicit target bypasses that recommendation. Otherwise it selects a grounded prerequisite root. Sessions pin their curriculum and survive restart.
+
+```text
+/teach start
+/teach start {"conceptId":"concept-<UUID>","budget":24}
+/teach next
+/teach answer move-<UUID> {"response":"paragraph one\nparagraph two"}
+/teach hint
+/teach retry move-<UUID>
+/teach status
+/teach summary teaching-<UUID>
+/teach audit teaching-<UUID>
+/teach history
+/teach abandon
+```
+
+Activation comes first. Independent activation success receives a focused grounded explanation and practice; difficulty starts with a minimal cue. Support escalates from cue to targeted hint, partial structure and worked solution. Repeated difficulty may detour to a direct prerequisite and then return. Assisted success requires a fresh independent changed-context check. Teach-back captures your own explanation through M4 with an explicitly **unscored** open rubric; automated semantic grading is deferred.
+
+Hint receipts persist and cannot erase assistance from the outstanding task. All interactive performance uses the existing M4 task/attempt/evaluation/evidence ledger. Explanations and requested hints alone create no performance evidence. The content model proposes bounded content in an isolated Pi session; deterministic policy controls navigation and SQLite writes.
+
+Default budget is 24 moves (1–80 configurable), including hints and explanations. Only one interactive move remains unresolved. Generation failures create no move; failed evaluation retains the answer and requires explicit retry. A completed summary freezes the M4 heads and evidence IDs used at completion, while audit retains later corrections.
+
+Source-grounded content resolves historical course segments and anchors; generated content uses existing research provenance. Hybrid contexts prioritize learner sources. No new research, dependency, mastery/gap state or review scheduler is introduced. Generated content still requires semantic review: structural validation cannot prove factual correctness, detect every answer leak, or guarantee that a purported transfer problem is genuinely different. Actual provider completion is not covered by credential-free SDK tests.
+
+See [M6 validation](docs/M6_VALIDATION.md) for evidence, private acceptance limitations and the complete review inventory.
