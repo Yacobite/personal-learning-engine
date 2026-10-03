@@ -1,6 +1,6 @@
-# Personal learning engine — M3 curriculum and concept graphs
+# Personal learning engine — M4 assessment and evidence foundation
 
-This repository provides durable courses, versioned sources, and inspectable curriculum graphs through Pi. Models propose curricula; deterministic services validate and save drafts. Teaching and learner-model features await later milestone approval.
+This repository provides durable courses, versioned sources, curriculum graphs and immutable assessment/evidence history through Pi. Models propose results; application services validate durable writes. Teaching and learner-model features await later milestone approval.
 
 The authoritative product specification is [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md). Approved refinements and engineering choices are in [docs/APPROVED_DECISIONS.md](docs/APPROVED_DECISIONS.md).
 
@@ -35,7 +35,7 @@ This uses the pinned local Pi executable and `.pi/extensions/index.ts`. Accept P
 
 The command displays the schema version, SQLite version, and FTS5 availability. It does not need a model call. Normal AI conversation requires separately configured Pi provider credentials; never put credentials in this repository.
 
-Database initialization occurs on `session_start`, creating `_learning/learning.db`. `_learning/` is ignored by Git. Schema version 3 adds `sources`, `source_versions`, `source_segments`, and `source_segments_fts` beside the migration ledger and courses. No learner-model schema exists yet. Extensions run with the current user's permissions; the path checks are not an operating-system sandbox.
+Database initialization occurs on `session_start`, creating `_learning/learning.db`. `_learning/` is ignored by Git. Migration 5 adds immutable assessment tasks, attempts, evaluations and evidence beside courses, versioned sources and curriculum graphs. No learner-model schema exists yet. Extensions run with the current user's permissions; the path checks are not an operating-system sandbox.
 
 ## Courses
 
@@ -48,7 +48,7 @@ Create a course with its mode, title, and objective:
 /course current
 ```
 
-Modes are `source_grounded` (supplied course material), `generated_curriculum` (a goal with externally researched material), and `hybrid` (both). The mode does not change during ingestion. Curriculum generation is not implemented.
+Modes are `source_grounded` (supplied course material), `generated_curriculum` (a goal with externally researched material), and `hybrid` (both). The mode does not change during ingestion. See the curriculum commands below for the bounded M3 generation flow.
 
 Double-quote arguments containing spaces. Quoted strings accept JSON escapes such as `\"` and `\\`. `/course new` without arguments shows usage. Empty titles/objectives, invalid modes, malformed IDs, and missing courses produce errors.
 
@@ -180,3 +180,31 @@ Requests use GET with a fixed user agent and no cookies/authentication. Each doc
 Migration 4 adds relational curriculum and research tables. Migrations 1–3 and package dependencies remain unchanged. Application/domain logic is independent of Pi; only runtime adapters orchestrate SDK sessions, and SQLite adapters own SQL.
 
 Local acceptance is documented in [docs/M3_VALIDATION.md](docs/M3_VALIDATION.md). `node scripts/validate-curriculum.ts prepare` copies private Topic 0–2 PDFs into an ignored isolated workspace and performs live bounded Python retrieval. After inspecting evidence, put reviewed `logic-proposal.json` and `python-proposal.json` files in that workspace, then run `node scripts/validate-curriculum.ts complete <workspace>`. This acceptance harness submits proposals through the model-facing tool and verifies activation, rebuild identity, history and restart; it does not simulate a successful live Pi provider call.
+
+## Assessment and evidence (M4)
+
+The durable pipeline is **task snapshot → actual submitted response → validated evaluation → evidence event**. `AssessmentService.createTask` resolves an explicit curriculum version or snapshots the active version once, validates stable concept membership and optional exact source/research provenance, and saves an immutable task. `submit` records a supplied response and assistance metadata; it never generates learner answers. Tasks are snapshots, not a question bank.
+
+`EvaluationService.evaluate` accepts a provider-independent evaluator port returning a proposal. `record` accepts a trusted application/manual evaluation. Both validate outcomes before writing. The evaluator cannot retarget the course, concepts, curriculum, representation, novelty or assistance. A scored outcome has correctness in 0–1; partial correctness requires a task-specific rubric and complete criterion scores. Unscored outcomes have null correctness and no rubric scores. Failed invocations retain a failed evaluation and the original attempt, but create no evidence event. Retry with a new operation ID; retrying the original ID returns its original failure.
+
+The deterministic adapter supports explicit exact/trim/trim-and-lowercase text comparison, known option identifiers, one finite decimal number with explicit nonnegative tolerance, and bounded JSON string-array set equality with explicit normalization/duplicate handling. No semantic explanation grader, expression parser, proof checker or code execution exists. Malformed numeric/choice/set answers are explicitly unscored. Numeric comparison uses ordinary JavaScript floating-point arithmetic without hidden tolerance. Open explanations require human interpretation or a future live open-response adapter; no live LLM evaluation is implemented.
+
+Assistance preserves `none`, `minimal`, `guided`, `worked_solution` and `ai_performed`. Novelty preserves `repeated`, `isomorphic`, `near_transfer`, `far_transfer` and `authentic`. The nine intended dimensions are metadata, not scores. Optional confidence is 0–1 and latency is 0–86,400,000 milliseconds; neither establishes competence. Hint count is 0–100, with explicit highest assistance level and bounded notes. AI-performed output remains distinguishable from independent learner work. A self-report or confidence value alone cannot create evidence.
+
+Task/attempt/evaluation/evidence IDs use lowercase UUID v4 with separate prefixes. Attempts and evaluations require course-scoped operation IDs: the same normalized request returns the original record, while a changed request conflicts. SHA-256 fingerprints include submitted response/metadata (or evaluator identity/policy and evaluation mode). Deterministic retries and manual recording survive restart. Task creation is a separate immutable snapshot operation, without a reusable question-bank interface.
+
+Corrections append a same-attempt `supersedes` link and a new evidence event. Prior outcomes remain auditable. Terminal lineage heads may include separate evaluations or branches; M4 makes no authority/reconciliation decision. SQLite transactions protect snapshot mappings and evaluation/evidence writes; update/delete and late child-metadata insertion are blocked. Attempts commit before invoking evaluators. Task references supply historical concept/version/novelty/representation and provenance without duplicating source bodies.
+
+Read-only Pi commands require the session's active course:
+
+```text
+/attempt show attempt-<UUID>
+/attempt evaluations attempt-<UUID>
+/evidence recent
+/evidence show evidence-<UUID>
+/evidence concept concept-<UUID>
+```
+
+These commands require no model credentials and expose no mutation tool. Submission/evaluation is currently an application API exercised by tests and explicit acceptance scripts; there is no teaching or assessment UI yet. Audit output identifies stored text as untrusted data and reconstructs task, response, assistance, evaluation policy/rationale, lineage and provenance links.
+
+[docs/M4_VALIDATION.md](docs/M4_VALIDATION.md) describes portable checks and isolated structural acceptance against the approved Logic graph. All acceptance performance data is synthetic. No mastery/readiness, gaps, review scheduling, diagnostics, teaching engine, web UI or OpenClaw is implemented. Migration 5 is additive; migrations 1–4 and dependencies remain unchanged.

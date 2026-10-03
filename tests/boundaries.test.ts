@@ -19,6 +19,7 @@ test('domain, ports, and services obey inward dependencies and cannot import Pi 
     domain: ['domain'],
     ports: ['domain', 'ports'],
     services: ['domain', 'ports', 'services'],
+    evaluation: ['domain', 'ports', 'evaluation'],
   };
   for (const [layer, targets] of Object.entries(allowed)) {
     for (const path of typescriptFiles(join(sourceRoot, layer))) {

@@ -20,6 +20,10 @@ import { ResearchService } from '../../src/services/research-service.ts';
 import { PythonDocsResearcher } from '../../src/research/official-docs.ts';
 import { PiCurriculumBuilder } from '../../src/runtime/pi/curriculum-builder.ts';
 import { registerCurriculum } from '../../src/runtime/pi/register-curriculum.ts';
+import { AssessmentService } from '../../src/services/assessment-service.ts';
+import { EvaluationService } from '../../src/services/evaluation-service.ts';
+import { EvidenceService } from '../../src/services/evidence-service.ts';
+import { registerEvidence } from '../../src/runtime/pi/register-evidence.ts';
 
 /** Composition root only: construct adapters and bind the session lifecycle. */
 export default function learningFoundation(pi: ExtensionAPI): void {
@@ -30,6 +34,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   let graphService: GraphService | undefined;
   let researchService: ResearchService | undefined;
   let builder: PiCurriculumBuilder | undefined;
+  let assessments: AssessmentService | undefined;
+  let evaluations: EvaluationService | undefined;
+  let evidence: EvidenceService | undefined;
   const selection = new CourseSession();
 
   const close = (): void => {
@@ -42,6 +49,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     graphService = undefined;
     researchService = undefined;
     builder = undefined;
+    assessments = undefined;
+    evaluations = undefined;
+    evidence = undefined;
   };
 
   pi.on('session_start', (_event, ctx) => {
@@ -56,6 +66,11 @@ export default function learningFoundation(pi: ExtensionAPI): void {
       () => `concept-${randomUUID()}`, () => new Date());
     researchService = new ResearchService(courseService, store.research, new PythonDocsResearcher());
     builder = new PiCurriculumBuilder(courseService, sourceService, graphService, researchService);
+    const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+    assessments = new AssessmentService(courseService, store.assessments, store.graphs, store.sources, store.research,
+      (prefix) => `${prefix}-${randomUUID()}`, hash, () => new Date());
+    evaluations = new EvaluationService(assessments, store.assessments, (prefix) => `${prefix}-${randomUUID()}`, hash, () => new Date());
+    evidence = new EvidenceService(courseService, store.assessments, store.graphs);
   });
   pi.on('session_shutdown', close);
   registerLearningStatus(pi, () => {
@@ -73,5 +88,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   registerCurriculum(pi, () => {
     if (!courseService || !graphService || !builder || !researchService) throw new Error('Curriculum session has not started.');
     return { courses: courseService, selection, graphs: graphService, research: researchService, build: builder.build.bind(builder) };
+  });
+  registerEvidence(pi, () => {
+    if (!courseService || !assessments || !evaluations || !evidence) throw new Error('Assessment session has not started.');
+    return { courses: courseService, selection, assessments, evaluations, evidence };
   });
 }
