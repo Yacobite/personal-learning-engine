@@ -46,3 +46,21 @@ test('domain, ports, and services obey inward dependencies and cannot import Pi 
     }
   }
 });
+
+test('Pi runtime contains no SQL, database-driver imports or direct repository construction', () => {
+  const adapterPaths = typescriptFiles(join(sourceRoot, 'runtime', 'pi'));
+  const paths = [...adapterPaths, ...typescriptFiles(fileURLToPath(new URL('../.pi/', import.meta.url)))];
+  for (const path of paths) {
+    const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true);
+    const inspect = (node: ts.Node): void => {
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)) {
+        assert.doesNotMatch(node.text, /\b(?:SELECT\s+.+\s+FROM|INSERT\s+INTO|CREATE\s+TABLE|DELETE\s+FROM|UPDATE\s+.+\s+SET|PRAGMA)\b/i);
+      }
+      if (adapterPaths.includes(path) && ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+        assert.doesNotMatch(node.moduleSpecifier.text, /sqlite|persistence/);
+      }
+      ts.forEachChild(node, inspect);
+    };
+    inspect(source);
+  }
+});

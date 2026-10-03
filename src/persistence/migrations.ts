@@ -18,6 +18,21 @@ export const migrations: readonly Migration[] = [
       applied_at TEXT NOT NULL
     ) STRICT;`,
   },
+  {
+    version: 2,
+    name: 'durable-courses',
+    sql: `CREATE TABLE courses (
+      id TEXT PRIMARY KEY NOT NULL CHECK (
+        id GLOB 'course-????????-????-4???-[89ab]???-????????????'
+        AND substr(id, 8) NOT GLOB '*[^0-9a-f-]*'
+      ),
+      title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+      mode TEXT NOT NULL CHECK (mode IN ('source_grounded', 'generated_curriculum', 'hybrid')),
+      objective TEXT NOT NULL CHECK (length(trim(objective)) > 0),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    ) STRICT;`,
+  },
 ];
 
 function checksum(migration: Migration): string {
