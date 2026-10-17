@@ -30,7 +30,7 @@ export function registerLearnerState(pi: Pick<ExtensionAPI, 'registerCommand'>, 
                         else if (tokens[0] === 'revision' && tokens.length === 2)
                             result = r.state.revision(course.id, tokens[1]!);
                         else if (tokens[0] === 'history' && tokens.length === 1)
-                            result = r.state.history(course.id).map(s => ({ id: s.id, number: s.number, curriculumVersion: s.curriculumVersion, asOf: s.asOf, policies: s.policies, fingerprint: s.fingerprint }));
+                            result = r.state.history(course.id).slice(-20).map(s => ({ id: s.id, number: s.number, curriculumVersion: s.curriculumVersion, asOf: s.asOf, policies: s.policies, fingerprint: s.fingerprint }));
                         else
                             throw new LearnerStateError('Usage: /state [concept <id>|revision <id>|history|rebuild]');
                     }
@@ -44,9 +44,9 @@ export function registerLearnerState(pi: Pick<ExtensionAPI, 'registerCommand'>, 
                     }
                     else {
                         if (!tokens.length)
-                            result = r.gaps.current(course.id);
+                            result = r.gaps.current(course.id).slice(0, 20);
                         else if (tokens[0] === 'all' && tokens.length === 1)
-                            result = r.gaps.list(course.id);
+                            result = r.gaps.list(course.id).slice(0, 20);
                         else if (tokens[0] === 'show' && tokens.length === 2)
                             result = r.gaps.show(course.id, tokens[1]!);
                         else

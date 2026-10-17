@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { FoundationStatus } from '../domain/foundation-status.ts';
 import type { FoundationStore } from '../ports/foundation-store.ts';
+import { SqliteHealthStore, checkDatabaseCapabilities, validateMigrationHistory } from './database-health.ts';
 import { applyMigrations } from './migrations.ts';
 import { SqliteCourseRepository } from './course-repository.ts';
 import { SqliteSourceRepository } from './source-repository.ts';
@@ -24,6 +25,9 @@ function resolveDatabasePath(workspaceRoot: string): string {
   if (isAbsolute(withinRoot) || withinRoot === '..' || withinRoot.startsWith(`..${sep}`)) {
     throw new Error('Learning database directory must remain inside the workspace.');
   }
+  if (lstatSync(directory).isSymbolicLink()) {
+    throw new Error('Learning database directory must be a real project-local directory, not a symbolic link.');
+  }
   const databasePath = join(resolvedDirectory, 'learning.db');
   if (lstatSync(databasePath, { throwIfNoEntry: false })?.isSymbolicLink()) {
     throw new Error('Learning database must not be a symbolic link.');
@@ -32,6 +36,7 @@ function resolveDatabasePath(workspaceRoot: string): string {
 }
 
 export class SqliteFoundationStore implements FoundationStore {
+  readonly health: SqliteHealthStore;
   readonly courses: SqliteCourseRepository;
   readonly sources: SqliteSourceRepository;
   readonly graphs: SqliteGraphRepository;
@@ -47,6 +52,7 @@ export class SqliteFoundationStore implements FoundationStore {
 
   constructor(database: DatabaseSync) {
     this.database = database;
+    this.health = new SqliteHealthStore(database);
     this.courses = new SqliteCourseRepository(database);
     this.sources = new SqliteSourceRepository(database);
     this.graphs = new SqliteGraphRepository(database);
@@ -82,7 +88,9 @@ export function openLearningDatabase(workspaceRoot: string): SqliteFoundationSto
   const database = new DatabaseSync(resolveDatabasePath(workspaceRoot), { timeout: 5000 });
   try {
     database.exec('PRAGMA foreign_keys = ON');
+    validateMigrationHistory(database, false);
     applyMigrations(database);
+    checkDatabaseCapabilities(database);
     return new SqliteFoundationStore(database);
   } catch (error) {
     database.close();

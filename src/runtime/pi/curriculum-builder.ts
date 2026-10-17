@@ -37,12 +37,13 @@ export class PiCurriculumBuilder {
         const settingsManager = SettingsManager.inMemory();
         const loader = new DefaultResourceLoader({ cwd: ctx.cwd, settingsManager, noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
             agentDir: ctx.cwd, systemPrompt: builderInstructions });
-        await loader.reload();
-        // No ambient project extensions, MCP tools, skills, prompts or context files.
-        const { session } = await this.create({ cwd: ctx.cwd, model: ctx.model, resourceLoader: loader, settingsManager,
-            sessionManager: SessionManager.inMemory(), tools: scope.tools.map((tool) => tool.name), customTools: scope.tools });
+        let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
+        await loader.reload();
+        // No ambient project extensions, MCP tools, skills, prompts or context files.
+        ({ session } = await this.create({ cwd: ctx.cwd, model: ctx.model, resourceLoader: loader, settingsManager,
+            sessionManager: SessionManager.inMemory(), tools: scope.tools.map((tool) => tool.name), customTools: scope.tools }));
             const existingConcepts = new Map<string, {id: string; title: string; summary: string}>();
             for (const version of this.graphs.list(courseId)) {
                 for (const node of version.nodes) existingConcepts.set(node.conceptId, {id: node.conceptId, title: node.title, summary: node.summary});
@@ -51,7 +52,7 @@ export class PiCurriculumBuilder {
                 research: brief ? { id: brief.id, references: brief.references.map(({ text: _text, ...ref }) => ref) } : null,
                 existingConcepts: [...existingConcepts.values()] };
             await Promise.race([session.prompt('Build a grounded curriculum from this manifest. Read evidence with the allowed tool.\n' + JSON.stringify(manifest)),
-                new Promise<never>((_resolve, reject) => { timer = setTimeout(() => { void session.abort(); reject(new GraphError('Curriculum build timed out.')); }, 180000); })]);
+                new Promise<never>((_resolve, reject) => { timer = setTimeout(() => { void session!.abort().catch(() => {}); reject(new GraphError('Curriculum build timed out.')); }, 180000); })]);
             const draft = scope.getDraft();
             if (!draft)
                 throw new GraphError('The model did not submit a valid curriculum draft.');
@@ -61,8 +62,11 @@ export class PiCurriculumBuilder {
             scope.close();
             if (timer)
                 clearTimeout(timer);
-            await session.abort();
-            session.dispose();
+            if (session) {
+                // Best-effort cleanup must preserve successful work and the primary error.
+                try { await session.abort(); } catch { /* Preserve the operation result. */ }
+                try { session.dispose(); } catch { /* Disposal must not mask it either. */ }
+            }
         }
     }
 }

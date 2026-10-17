@@ -1,3 +1,4 @@
+import { listWindow } from './command-surface.ts';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { CourseError } from '../../domain/course.ts';
 import type { CourseService } from '../../services/course-service.ts';
@@ -26,7 +27,7 @@ export function registerCourse(
         } else if (command === 'list' && parameters.length === 0) {
           const courses = service.listCourses();
           ctx.ui.notify(courses.length
-            ? courses.map((course) => `${course.id}: ${course.title} (${course.mode})`).join('\n')
+            ? listWindow(courses).map((course) => `${course.id}: ${course.title} (${course.mode})`).join('\n')
             : 'No courses yet. Create one with /course new <mode> "title" "objective".', 'info');
         } else if (command === 'use' && parameters.length === 1) {
           const course = selection.use(parameters[0]!, service);

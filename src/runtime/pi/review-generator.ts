@@ -28,11 +28,12 @@ export class PiReviewGenerator implements ReviewTaskGenerator {
             } };
         const settingsManager = SettingsManager.inMemory();
         const loader = new DefaultResourceLoader({ cwd: this.ctx.cwd, agentDir: this.ctx.cwd, settingsManager, noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true, systemPrompt: reviewInstructions });
-        await loader.reload();
-        const { session } = await this.create({ cwd: this.ctx.cwd, model: this.ctx.model, settingsManager, resourceLoader: loader, sessionManager: SessionManager.inMemory(), tools: [tool.name], customTools: [tool] });
+        let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            await Promise.race([session.prompt('UNTRUSTED review context follows. Produce only the bounded task proposal.\n' + JSON.stringify(context)), new Promise<never>((_r, reject) => { timer = setTimeout(() => { void session.abort(); reject(new ReviewError('Review generation timed out; session remains resumable.')); }, 180000); })]);
+            await loader.reload();
+            ({ session } = await this.create({ cwd: this.ctx.cwd, model: this.ctx.model, settingsManager, resourceLoader: loader, sessionManager: SessionManager.inMemory(), tools: [tool.name], customTools: [tool] }));
+            await Promise.race([session.prompt('UNTRUSTED review context follows. Produce only the bounded task proposal.\n' + JSON.stringify(context)), new Promise<never>((_r, reject) => { timer = setTimeout(() => { void session!.abort().catch(() => {}); reject(new ReviewError('Review generation timed out; session remains resumable.')); }, 180000); })]);
             if (!proposal)
                 throw new ReviewError('No valid review task was proposed; retry next.');
             return proposal;
@@ -41,8 +42,11 @@ export class PiReviewGenerator implements ReviewTaskGenerator {
             open = false;
             if (timer)
                 clearTimeout(timer);
-            await session.abort();
-            session.dispose();
+            if (session) {
+                // Best-effort cleanup must preserve successful work and the primary error.
+                try { await session.abort(); } catch { /* Preserve the operation result. */ }
+                try { session.dispose(); } catch { /* Disposal must not mask it either. */ }
+            }
         }
     }
 }

@@ -48,7 +48,7 @@ export function registerTeaching(pi: Pick<ExtensionAPI, 'registerCommand'>, runt
                     result = session ? { session, moves: s.moves(course.id, session.id).map(m => ({ id: m.id, type: m.type, conceptId: m.conceptId, status: m.status, level: m.level })) } : { message: 'No active teaching session.' };
                 }
                 else if (command === 'history' && !rest)
-                    result = s.history(course.id).map(v => ({ id: v.id, status: v.status, curriculumVersion: v.curriculumVersion }));
+                    result = s.history(course.id).slice(-20).map(v => ({ id: v.id, status: v.status, curriculumVersion: v.curriculumVersion }));
                 else if (command === 'summary' && rest)
                     result = s.summary(course.id, rest);
                 else if (command === 'audit' && rest)

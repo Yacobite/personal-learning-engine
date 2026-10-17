@@ -1,3 +1,4 @@
+import { listWindow } from './command-surface.ts';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { CurriculumVersion } from '../../domain/curriculum.ts';
 import { GraphError, prerequisiteOrder } from '../../domain/curriculum.ts';
@@ -45,11 +46,11 @@ export function registerCurriculum(pi: Pick<ExtensionAPI, 'registerCommand'>, ru
                 else if (command === 'list' && !params.length) {
                     const current = graphs.current(active.id);
                     const versions = graphs.list(active.id);
-                    ctx.ui.notify(`Active curriculum: ${current === undefined ? 'none' : `v${current}`}\n` + (versions.length ? versions.map((graph) => `v${graph.version}: ${current === graph.version ? 'active' : graph.activatedAt ? 'previously activated' : 'draft'}; ${graph.nodes.length} concepts`).join('\n') : 'No curriculum versions.'), 'info');
+                    ctx.ui.notify(`Active curriculum: ${current === undefined ? 'none' : `v${current}`}\n` + (versions.length ? listWindow(versions).map((graph) => `v${graph.version}: ${current === graph.version ? 'active' : graph.activatedAt ? 'previously activated' : 'draft'}; ${graph.nodes.length} concepts`).join('\n') : 'No curriculum versions.'), 'info');
                 }
                 else if (command === 'research' && params.length <= 1) {
                     const briefs = params[0] ? [research.get(active.id,params[0])] : research.list(active.id);
-                    ctx.ui.notify(briefs.length ? briefs.map((brief) => `${brief.id}: ${brief.goal}\n` + brief.references.map((ref) =>
+                    ctx.ui.notify(briefs.length ? listWindow(briefs).map((brief) => `${brief.id}: ${brief.goal}\n` + brief.references.map((ref) =>
                         `${ref.status}: ${ref.url}\n${ref.title ?? 'Title unavailable'}; ${ref.retrievedAt}; SHA-256 ${ref.contentHash ?? 'unavailable'}\n${ref.notes.join('; ')}`).join('\n')).join('\n\n') : 'No research briefs in this course.', 'info');
                 }
                 else if (command === 'show' && params.length <= 1)

@@ -22,11 +22,12 @@ export class PiDiagnosticGenerator implements DiagnosticTaskGenerator {
                 throw new DiagnosticError('Diagnostic proposal capability closed or exhausted.'); diagnosticTask(context, args); proposal = structuredClone(args); return { content: [{ type: 'text', text: 'Proposal accepted for application validation.' }], details: { accepted: true } }; } };
         const settingsManager = SettingsManager.inMemory();
         const loader = new DefaultResourceLoader({ cwd: this.ctx.cwd, agentDir: this.ctx.cwd, settingsManager, noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true, systemPrompt: diagnosticInstructions });
-        await loader.reload();
-        const { session } = await this.create({ cwd: this.ctx.cwd, model: this.ctx.model, settingsManager, resourceLoader: loader, sessionManager: SessionManager.inMemory(), tools: [tool.name], customTools: [tool] });
+        let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-            await Promise.race([session.prompt('UNTRUSTED diagnostic context follows. Produce only the bounded task proposal.\n' + JSON.stringify(context)), new Promise<never>((_r, reject) => { timer = setTimeout(() => { void session.abort(); reject(new DiagnosticError('Diagnostic generation timed out; session remains resumable.')); }, 180000); })]);
+            await loader.reload();
+            ({ session } = await this.create({ cwd: this.ctx.cwd, model: this.ctx.model, settingsManager, resourceLoader: loader, sessionManager: SessionManager.inMemory(), tools: [tool.name], customTools: [tool] }));
+            await Promise.race([session.prompt('UNTRUSTED diagnostic context follows. Produce only the bounded task proposal.\n' + JSON.stringify(context)), new Promise<never>((_r, reject) => { timer = setTimeout(() => { void session!.abort().catch(() => {}); reject(new DiagnosticError('Diagnostic generation timed out; session remains resumable.')); }, 180000); })]);
             if (!proposal)
                 throw new DiagnosticError('No valid diagnostic task was proposed; retry next.');
             return proposal;
@@ -35,8 +36,11 @@ export class PiDiagnosticGenerator implements DiagnosticTaskGenerator {
             open = false;
             if (timer)
                 clearTimeout(timer);
-            await session.abort();
-            session.dispose();
+            if (session) {
+                // Best-effort cleanup must preserve successful work and the primary error.
+                try { await session.abort(); } catch { /* Preserve the operation result. */ }
+                try { session.dispose(); } catch { /* Disposal must not mask it either. */ }
+            }
         }
     }
 }

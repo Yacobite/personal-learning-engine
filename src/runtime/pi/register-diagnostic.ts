@@ -63,7 +63,7 @@ export function registerDiagnostic(pi: Pick<ExtensionAPI, 'registerCommand'>, ru
                 else if (command === 'audit' && rest)
                     result = service.audit(course.id, rest);
                 else if (command === 'history' && !rest)
-                    result = service.history(course.id).map(s => ({ id: s.id, status: s.status, curriculumVersion: s.curriculumVersion, startedAt: s.startedAt, stopReason: s.stopReason }));
+                    result = service.history(course.id).slice(-20).map(s => ({ id: s.id, status: s.status, curriculumVersion: s.curriculumVersion, startedAt: s.startedAt, stopReason: s.stopReason }));
                 else if (command === 'status' && !rest) {
                     const s = service.current(course.id);
                     result = s ? { session: s, probes: service.probes(course.id, s.id).map(p => ({ id: p.id, sequence: p.sequence, conceptId: p.conceptId, status: p.status, taskId: p.taskId })) } : { message: 'No active diagnostic.' };

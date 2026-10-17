@@ -1,3 +1,4 @@
+import { listWindow } from './command-surface.ts';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { CourseError } from '../../domain/course.ts';
 import { SourceError } from '../../domain/source.ts';
@@ -36,7 +37,7 @@ export function registerSource(pi: Pick<ExtensionAPI, 'registerCommand'>,
             + result.version.warnings.map((w) => `${w.anchor ? `${formatAnchor(w.anchor)}: ` : ''}${w.message}`).join('\n'), 'info');
         } else if (command === 'list' && !params.length) {
           const sources = runtime.sources.list(active.id);
-          ctx.ui.notify(sources.length ? sources.map((s) => `${s.id} v${s.currentVersion}: ${s.title} (${s.kind}, ${s.origin}, ${s.status})`).join('\n') : 'No sources in this course.', 'info');
+          ctx.ui.notify(sources.length ? listWindow(sources).map((s) => `${s.id} v${s.currentVersion}: ${s.title} (${s.kind}, ${s.origin}, ${s.status})`).join('\n') : 'No sources in this course.', 'info');
         } else if (command === 'status' && (params.length === 1 || params.length === 2)) {
           const version = runtime.sources.status(active.id, params[0]!, params[1] ? Number(params[1]) : undefined);
           ctx.ui.notify(`${version.sourceId} v${version.version}: ${version.title}; ${version.status}\n`

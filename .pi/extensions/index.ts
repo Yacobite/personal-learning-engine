@@ -3,6 +3,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { openLearningDatabase } from '../../src/persistence/database.ts';
 import type { SqliteFoundationStore } from '../../src/persistence/database.ts';
 import { FoundationService } from '../../src/services/foundation-service.ts';
+import { HealthService } from '../../src/services/health-service.ts';
+import { registerHealth } from '../../src/runtime/pi/register-health.ts';
+import { commandSurface } from '../../src/runtime/pi/command-surface.ts';
 import { registerLearningStatus } from '../../src/runtime/pi/register-status.ts';
 import { CourseService } from '../../src/services/course-service.ts';
 import { CourseSession } from '../../src/runtime/pi/course-session.ts';
@@ -40,6 +43,8 @@ import { registerLearnerState } from '../../src/runtime/pi/register-learner-stat
 /** Composition root only: construct adapters and bind the session lifecycle. */
 export default function learningFoundation(pi: ExtensionAPI): void {
   let store: SqliteFoundationStore | undefined;
+  let health: HealthService | undefined;
+  const commands = commandSurface(pi);
   let service: FoundationService | undefined;
   let courseService: CourseService | undefined;
   let sourceService: SourceService | undefined;
@@ -61,6 +66,7 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     selection.clear();
     store?.close();
     store = undefined;
+    health = undefined;
     service = undefined;
     courseService = undefined;
     sourceService = undefined;
@@ -81,6 +87,7 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   pi.on('session_start', (_event, ctx) => {
     close();
     store = openLearningDatabase(ctx.cwd);
+    health = new HealthService(store.health, process.versions.node);
     service = new FoundationService(store);
     courseService = new CourseService(store.courses, () => `course-${randomUUID()}`, () => new Date());
     sourceService = new SourceService(courseService, store.sources, new ProjectSourceReader(ctx.cwd),
@@ -106,39 +113,44 @@ export default function learningFoundation(pi: ExtensionAPI): void {
       new TeachingContextBuilder(store.sources, store.research), (prefix) => `${prefix}-${randomUUID()}`, () => new Date());
   });
   pi.on('session_shutdown', close);
-  registerLearningStatus(pi, () => {
+  registerHealth(commands, () => {
+    if (!health || !courseService) throw new Error('Learning database has not started.');
+    const active = selection.current(courseService);
+    return { health, ...(active ? { activeCourseId: active.id } : {}) };
+  });
+  registerLearningStatus(commands, () => {
     if (!service) throw new Error('Learning foundation session has not started.');
     return service;
   });
-  registerCourse(pi, () => {
+  registerCourse(commands, () => {
     if (!courseService) throw new Error('Learning foundation session has not started.');
     return { service: courseService, selection };
   });
-  registerSource(pi, () => {
+  registerSource(commands, () => {
     if (!sourceService || !courseService) throw new Error('Learning foundation session has not started.');
     return { sources: sourceService, courses: courseService, selection };
   });
-  registerCurriculum(pi, () => {
+  registerCurriculum(commands, () => {
     if (!courseService || !graphService || !builder || !researchService) throw new Error('Curriculum session has not started.');
     return { courses: courseService, selection, graphs: graphService, research: researchService, build: builder.build.bind(builder) };
   });
-  registerEvidence(pi, () => {
+  registerEvidence(commands, () => {
     if (!courseService || !assessments || !evaluations || !evidence) throw new Error('Assessment session has not started.');
     return { courses: courseService, selection, assessments, evaluations, evidence };
   });
-  registerDiagnostic(pi, () => {
+  registerDiagnostic(commands, () => {
     if (!courseService || !assessments || !diagnostics) throw new Error('Diagnostic session has not started.');
     return { courses: courseService, selection, assessments, diagnostics };
   });
-  registerReview(pi, () => {
+  registerReview(commands, () => {
     if (!courseService || !assessments || !reviews) throw new Error('Review session has not started.');
     return { courses: courseService, selection, assessments, reviews };
   });
-  registerLearnerState(pi, () => {
+  registerLearnerState(commands, () => {
     if (!courseService || !state || !readiness || !gaps) throw new Error('Learner-state session has not started.');
     return { courses: courseService, selection, state, readiness, gaps };
   });
-  registerTeaching(pi, () => {
+  registerTeaching(commands, () => {
     if (!courseService || !assessments || !teaching) throw new Error('Teaching session has not started.');
     return { courses: courseService, selection, assessments, teaching };
   });

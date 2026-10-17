@@ -27,7 +27,10 @@ export class SqliteReviewRepository implements ReviewRepository {
             status: r.status as ReviewStatus, taskId: r.task_id === null ? null : String(r.task_id), attemptId: r.attempt_id === null ? null : String(r.attempt_id), completedAt: r.completed_at === null ? null : String(r.completed_at) };
     }
     list(courseId: string) { return this.db.prepare('SELECT i.*,p.status,p.task_id,p.attempt_id,p.completed_at FROM review_items i JOIN review_progress p ON p.item_id=i.id WHERE i.course_id=? ORDER BY i.created_at,i.id').all(courseId).map(r => this.map(r)); }
-    get(courseId: string, id: string) { return this.list(courseId).find(i => i.id === id); }
+    get(courseId: string, id: string) {
+        const row = this.db.prepare('SELECT i.*,p.status,p.task_id,p.attempt_id,p.completed_at FROM review_items i JOIN review_progress p ON p.item_id=i.id WHERE i.course_id=? AND i.id=?').get(courseId,id);
+        return row ? this.map(row) : undefined;
+    }
     private event(i: ReviewItem, kind: ReviewEvent['kind'], at: string, reason: string, evaluationId: string | null = null, evidenceId: string | null = null) {
         this.db.prepare('INSERT INTO review_events(course_id,item_id,kind,at,reason,evaluation_id,evidence_id) VALUES (?,?,?,?,?,?,?)').run(i.courseId, i.id, kind, at, reason, evaluationId, evidenceId);
     }

@@ -1,8 +1,25 @@
-# Personal learning engine — M8 review and spacing
+# Personal learning engine — M9 integration and hardening
 
 This repository provides durable courses, versioned sources, curriculum graphs, assessment/evidence history, bounded diagnosis/teaching, learner-state projections and a review queue through Pi. Models propose content; application services own durable writes. M4 owns performance, M7 interprets learner state, and M8 schedules future observations.
 
 The authoritative product specification is [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md). Approved refinements and engineering choices are in [docs/APPROVED_DECISIONS.md](docs/APPROVED_DECISIONS.md).
+
+## A normal learning session
+
+After installation, run `npm run dev` and enter `/learning-help`. Workflows are explicit commands; ordinary clarification questions remain ordinary Pi chat.
+
+1. Create a source course with `/course new source_grounded "My course" "My objective"`, then `/course use course-<UUID>`.
+2. Put your material under `sources/inbox/`; run `/source add "sources/inbox/lecture notes.pdf"`. Inspect extraction warnings with `/source status source-<UUID>`.
+3. With a configured Pi model, run `/curriculum build`. Inspect `/curriculum show`, validate with `/curriculum validate`, and explicitly activate the reviewed version with `/curriculum activate 1`.
+4. If useful, run `/diagnostic start`, then `/diagnostic next`. Submit each actual answer using the JSON syntax below. Continue `next` until the diagnostic completes; its frontier recommends instruction, not mastery.
+5. Run `/teach start` and `/teach next`. Answer the displayed move using `/teach answer move-<UUID> {"response":"your answer"}`; request `/teach hint` when needed. Continue `next`.
+6. Inspect `/state`, `/readiness` and `/gaps`. Teaching completion alone is insufficient for competence. Rich teach-back is captured unscored; missing independently scored dimensions remain missing.
+7. Inspect `/review`; use `/review next` when due, then `/review answer review-<UUID> {"response":"your answer"}`. Due time requests a new observation; it never establishes mastery itself.
+8. Use `/learning-doctor` for installation/database health. After restarting Pi, reselect your course; durable sessions, responses and reviews survive.
+
+For a generated course, create `/course new generated_curriculum "Python" "Learn Python basics"` and select it. Skip source ingestion, build and inspect the curriculum, then activate and follow the same flow. Current generated research is a narrowly bounded Python official-documentation proof using approved seeds; this is not an arbitrary-topic web researcher. Stored research provenance remains distinct from learner sources. Hybrid mode uses source-first grounding where usable source references exist.
+
+Generation needs a configured Pi model. Course/source/curriculum inspection, evidence audits, deterministic grading, learner-state calculation and review queues work without provider credentials. Transient generation failures can be retried with `next`. A retained answer whose evaluator failed uses the relevant `retry` command; do not resubmit a different answer as a retry. The detailed command sections below describe recovery and audit syntax.
 
 ## Install and validate
 
@@ -322,3 +339,21 @@ M4 attempts/evaluations/evidence persist before M7 refresh and M8 reconciliation
 Migration 9 is additive. It adds review identity/progress/events/outcomes/reconciliation and an immutable review_generated task-origin extension; original source-derived/curriculum-generated origin metadata remains intact. Migrations 1–8 and package dependencies are unchanged. The M7 read-only competence timeline identifies the qualifying durability event using its existing policies, without publishing state or changing mastery semantics.
 
 No background jobs, notifications, web UI, question bank, new research, dependency or M9 feature is included. See [M8 validation](docs/M8_VALIDATION.md) for test coverage, synthetic acceptance, recovery limits and the full review inventory.
+
+## Health, privacy and local backup (M9)
+
+`/learning-status` gives lightweight foundation status. `/learning-doctor` deliberately runs SQLite integrity and foreign-key checks plus migration-history validation, and shows resumable subsystem IDs/counts for the selected course. It does not print answers, scoring keys or source bodies, refresh learner state, create schedules, repair corruption or reset data. Startup checks foreign-key enforcement, historical migration checksums, schema compatibility, FTS5 and JSON support. A newer schema is refused rather than downgraded. Stop writers and preserve a copy if health fails.
+
+Canonical state is local at `<project>/_learning/learning.db`. `_learning/` and private `sources/inbox/` contents are Git-ignored; keep private files there, not in public tests/docs. Each project has its own database and ephemeral active-course selection. Lists and command notifications are bounded; inspect specific IDs for detail. Full immutable records remain in SQLite.
+
+**Cloud disclosure:** when a cloud model is configured, bounded source/research excerpts, course context and (for teaching feedback) bounded learner-response context supplied for generation may be sent to its provider. Source material does not necessarily remain on-device. The current evaluators are deterministic/local; there is no live semantic LLM grader. Learner-state/readiness/gap calculation and spacing are deterministic/local. The engine does not store provider credentials in `learning.db`; Pi owns provider authentication separately. Explicit audit commands can display sensitive stored responses and scoring fields to you, so treat terminal capture and exported audits as private.
+
+For a manual local backup:
+
+1. Exit Pi and stop all other database writers for this project.
+2. Copy `_learning/learning.db` to a safe private location. If SQLite journal/WAL sidecars remain, retain the entire `_learning` directory together rather than copying a live/incomplete database.
+3. Retain original source files separately where needed. Restore only with writers stopped, retain the original backup, and run `/learning-doctor` after opening the restored project.
+
+There is no automatic corruption repair, cloud sync or global cross-project learner model. Current limitations also include no semantic open-response grading, unscored rich teach-back, no background notifications, no web UI, no OpenClaw and no question bank. Spacing is the approved deterministic ladder, not official FSRS. Semantic correctness, answer leakage and genuine novelty of live generated content still require human scrutiny.
+
+[M9 validation](docs/M9_VALIDATION.md) records the portable gate, clean-copy installation, recovery matrix and isolated synthetic Logic/Python acceptance. All M9 acceptance performance is development data, never a claim about the real learner.
