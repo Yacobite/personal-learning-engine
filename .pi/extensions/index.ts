@@ -30,6 +30,10 @@ import { registerDiagnostic } from '../../src/runtime/pi/register-diagnostic.ts'
 import { TeachingService } from '../../src/services/teaching-service.ts';
 import { registerTeaching } from '../../src/runtime/pi/register-teaching.ts';
 import { TeachingContextBuilder } from '../../src/services/teaching-context.ts';
+import { LearnerStateService } from '../../src/services/learner-state-service.ts';
+import { ReadinessService } from '../../src/services/readiness-service.ts';
+import { GapService } from '../../src/services/gap-service.ts';
+import { registerLearnerState } from '../../src/runtime/pi/register-learner-state.ts';
 
 /** Composition root only: construct adapters and bind the session lifecycle. */
 export default function learningFoundation(pi: ExtensionAPI): void {
@@ -45,6 +49,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   let evidence: EvidenceService | undefined;
   let diagnostics: DiagnosticService | undefined;
   let teaching: TeachingService | undefined;
+  let state: LearnerStateService | undefined;
+  let readiness: ReadinessService | undefined;
+  let gaps: GapService | undefined;
   const selection = new CourseSession();
 
   const close = (): void => {
@@ -62,6 +69,9 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     evidence = undefined;
     diagnostics = undefined;
     teaching = undefined;
+    state = undefined;
+    readiness = undefined;
+    gaps = undefined;
   };
 
   pi.on('session_start', (_event, ctx) => {
@@ -110,6 +120,10 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   registerDiagnostic(pi, () => {
     if (!courseService || !assessments || !diagnostics) throw new Error('Diagnostic session has not started.');
     return { courses: courseService, selection, assessments, diagnostics };
+  });
+  registerLearnerState(pi, () => {
+    if (!courseService || !state || !readiness || !gaps) throw new Error('Learner-state session has not started.');
+    return { courses: courseService, selection, state, readiness, gaps };
   });
   registerTeaching(pi, () => {
     if (!courseService || !assessments || !teaching) throw new Error('Teaching session has not started.');

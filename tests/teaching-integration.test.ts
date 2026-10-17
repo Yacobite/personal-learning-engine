@@ -145,9 +145,9 @@ test('migration 7 preserves checksums 1–6, upgrades M5 and creates no learner 
     db.exec('PRAGMA foreign_keys=ON');
     applyMigrations(db, migrations.slice(0, 6));
     const before = db.prepare('SELECT * FROM schema_migrations').all();
-    applyMigrations(db);
+    applyMigrations(db, migrations.slice(0, 7));
     assert.deepEqual(db.prepare('SELECT * FROM schema_migrations WHERE version<=6').all(), before);
-    assert.equal(migrations.length, 7);
+    assert.equal(migrations[6]!.version, 7);
     assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND (name LIKE '%mastery%' OR name LIKE '%gap%' OR name LIKE '%review%')").get()!.n, 0);
     assert.equal(createHash('sha256').update(JSON.stringify([migrations[4]!.version, migrations[4]!.name, migrations[4]!.sql])).digest('hex'), '9e33f4404ce12a2ce754e6bc41e51097ef820772a4a1141420810dda140cda3e');
 }

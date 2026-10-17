@@ -105,7 +105,8 @@ test('durable start, pending-next replay, real M4 ledger, completion, history an
     assert.equal(done.session.summary!.findings.filter(v => v.state === 'not_probed').length, 1);
     assert.deepEqual(d.summary(f.courseId, s.id), done.session.summary);
     assert.equal(d.history(f.courseId).length, 1);
-    assert.equal(f.db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='table' AND (name LIKE '%mastery%' OR name LIKE '%gap%' OR name LIKE '%review%' OR name LIKE '%readiness%')").get()!.n, 0);
+    assert.equal(f.db.prepare("SELECT count(*) AS n FROM learner_revisions").get()!.n, 0);
+    assert.equal(f.db.prepare("SELECT count(*) AS n FROM learner_gap_identities").get()!.n, 0);
 }
 finally {
     f.store.close();
@@ -284,7 +285,7 @@ test('migration 6 upgrades populated M4 without changing ledger or M4 evidence',
         const ledger = db.prepare('SELECT * FROM schema_migrations ORDER BY version').all();
         applyMigrations(db);
         assert.deepEqual(db.prepare('SELECT * FROM schema_migrations WHERE version<=5 ORDER BY version').all(), ledger);
-        assert.equal(store.readStatus().schemaVersion, 7);
+        assert.equal(store.readStatus().schemaVersion, 8);
         assert.deepEqual(runtime.evidence.show(f.courseId, outcome.evidence!.id), audit);
         assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
     }

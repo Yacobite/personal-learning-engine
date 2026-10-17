@@ -66,7 +66,7 @@ test('pinned Pi loads diagnostics and runs create → list → use → current; 
     await session.prompt('/learning-status');
     assert.deepEqual(errors, []);
     assert.equal(messages.length, 1);
-    assert.match(messages[0] ?? '', /^Learning foundation: schema v7; SQLite /);
+    assert.match(messages[0] ?? '', /^Learning foundation: schema v8; SQLite /);
     assert.ok(existsSync(join(workspace, '_learning', 'learning.db')));
     assert.ok(session.extensionRunner.getCommand('course'));
     assert.ok(session.extensionRunner.getCommand('source'));

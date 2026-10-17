@@ -54,7 +54,7 @@ test('migration 5 upgrades a populated M3 database without changing any historic
         applyMigrations(db);
         assert.deepEqual(db.prepare('SELECT * FROM schema_migrations WHERE version<=4 ORDER BY version').all(), ledger);
         assert.deepEqual(store.courses.getById(course.id), course);
-        assert.equal(store.readStatus().schemaVersion, 7);
+        assert.equal(store.readStatus().schemaVersion, 8);
     }
     finally {
         db.close();
@@ -124,7 +124,8 @@ test('all assistance levels remain distinct with correctness; confidence never i
         assert.equal(f.evidence.recent(f.courseId).length, 5);
         assert.throws(() => f.assessments.submit(f.courseId, 'self-report', { confidence: 1, response: 'I understand everything' }));
         assert.throws(() => f.evaluations.record(f.courseId, ids('attempt'), 'confidence', human, correct));
-        assert.deepEqual(f.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE '%mastery%' OR name LIKE '%gap%' OR name LIKE '%review%' OR name LIKE '%dimension_state%')").all(), []);
+        assert.equal(f.db.prepare("SELECT count(*) AS n FROM learner_revisions").get()!.n, 0);
+        assert.equal(f.db.prepare("SELECT count(*) AS n FROM learner_gap_identities").get()!.n, 0);
     }
     finally {
         f.store.close();

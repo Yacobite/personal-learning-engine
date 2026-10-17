@@ -6,6 +6,18 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url));
+test('M7 policies are deterministic and learner-state services have no model, scheduler or M4 mutation dependencies', () => {
+  for (const name of ['evidence-state-policy.ts', 'gap-policy.ts', 'readiness-policy.ts', 'competence-profile.ts']) {
+    const content = readFileSync(join(sourceRoot, 'domain', name), 'utf8');
+    assert.doesNotMatch(content, /Date\.now|new Date\(\s*\)|Math\.random|fetch\(|process\./);
+  }
+  for (const name of ['learner-state-service.ts', 'readiness-service.ts', 'gap-service.ts']) {
+    const source = ts.createSourceFile(name, readFileSync(join(sourceRoot, 'services', name), 'utf8'), ts.ScriptTarget.Latest, true);
+    for (const statement of source.statements) if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
+      assert.doesNotMatch(statement.moduleSpecifier.text, /assessment-service|evaluation-service|diagnostic-service|teaching-service|pi-coding-agent|scheduler|runtime|persistence/);
+    }
+  }
+});
 
 function typescriptFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -96,5 +108,5 @@ test('M5 generator and deterministic evaluator cannot import repository or mutat
   }
   assert.doesNotMatch(readFileSync(join(sourceRoot, 'domain', 'diagnostic-policy.ts'), 'utf8'), /Date\(|Math\.random|fetch\(|process\./);
   assert.doesNotMatch(readFileSync(join(sourceRoot, 'domain', 'teaching-policy.ts'), 'utf8'), /Date\(|Math\.random|fetch\(|process\./);
-  assert.equal(typescriptFiles(join(sourceRoot, 'services')).some(path => /mastery|review-scheduler|gap-service/.test(path)), false);
+  assert.equal(typescriptFiles(join(sourceRoot, 'services')).some(path => /mastery|review-scheduler/.test(path)), false);
 });

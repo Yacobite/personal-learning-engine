@@ -265,3 +265,30 @@ Default budget is 24 moves (1–80 configurable), including hints and explanatio
 Source-grounded content resolves historical course segments and anchors; generated content uses existing research provenance. Hybrid contexts prioritize learner sources. No new research, dependency, mastery/gap state or review scheduler is introduced. Generated content still requires semantic review: structural validation cannot prove factual correctness, detect every answer leak, or guarantee that a purported transfer problem is genuinely different. Actual provider completion is not covered by credential-free SDK tests.
 
 See [M6 validation](docs/M6_VALIDATION.md) for evidence, private acceptance limitations and the complete review inventory.
+
+## M7 learner state, readiness and gap escrow
+
+M7 derives local learner-state revisions from canonical M4 performance. It uses nine dimensions and categorical bands, including the approved assisted_difficulty band. It stores evidence counts, actual assistance/representation/novelty metadata, uncertainty and M4 audit references. There is no overall mastery percentage and no model call.
+
+```text
+/state
+/state concept concept-<UUID>
+/state revision state-<UUID>
+/state history
+/state rebuild
+/readiness
+/readiness concept concept-<UUID>
+/gaps
+/gaps all
+/gaps show gap-<UUID>
+```
+
+Select a course with an active curriculum first. Reports refresh idempotently: unchanged evidence, curriculum and policies reuse a revision. New evidence or corrected evaluation lineage creates a new immutable revision. Stable concept IDs can reuse evidence across curriculum versions; similar titles do not transfer evidence. Revision audit retains the original evidence versions and terminal evaluation IDs used.
+
+Instructionally ready means prerequisites permit beginning instruction. Provisional competence requires the node-type profile's independent evidence and no blocking OPEN/REPAIR gap. Durable mastery additionally requires a genuinely later independent non-repeated check at least 24 hours later, no later qualifying independent failure, no unresolved applicable gap and no relevant evaluation ambiguity. One concept-level delayed check is sufficient; each dimension need not have a separate delayed test. These are transparent V1 estimates, not psychological certainty.
+
+Gap escrow records meaningful single-concept scored failures, including failures despite assistance. Assisted or same-item success can start repair. Independent changed-case success moves into AWAITING_VERIFICATION; another independent changed check at least 24 hours later can close it. New failure resets an active gap; failure after verified closure creates a linked recurrence. Corrections can remove an obsolete gap from current state without deleting prior beliefs or M4 evidence.
+
+M5 diagnostic labels and M6 teaching completion do not grant competence. Unscored teach-back cannot establish structural support, assisted performance is not independent, and AI-performed output cannot supply competence or close gaps. Exact reused tasks/prompts cannot verify delay or supply new positive transfer merely by retaining an old novelty label. Eligibility timestamps are verification gates, not review due dates: **M8 scheduling has not begun**.
+
+See [M7 validation](docs/M7_VALIDATION.md) for the exact policies, schema, demonstrations, limitations and complete review inventory.
