@@ -289,7 +289,7 @@ test('migration 8 upgrades populated M6 tasks, diagnostics and teaching without 
         const before = db.prepare('SELECT * FROM schema_migrations').all();
         const prior = JSON.stringify({ diagnostic: d.audit(course.id, diagnostic.id), teaching: teaching.audit(course.id, session.id), evidence: runtime.evidence.recent(course.id) });
         assert.equal(before[6]!.checksum, '667e956729f5eea4a1da52334b88e4ea4d9e2c3540dd99d30ff1126c036de244');
-        applyMigrations(db);
+        applyMigrations(db, migrations.slice(0, 8));
         assert.deepEqual(db.prepare('SELECT * FROM schema_migrations WHERE version<=7').all(), before);
         assert.equal(JSON.stringify({ diagnostic: d.audit(course.id, diagnostic.id), teaching: teaching.audit(course.id, session.id), evidence: runtime.evidence.recent(course.id) }), prior);
         assert.equal(store.readStatus().schemaVersion, 8);

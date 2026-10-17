@@ -285,7 +285,7 @@ test('migration 6 upgrades populated M4 without changing ledger or M4 evidence',
         const ledger = db.prepare('SELECT * FROM schema_migrations ORDER BY version').all();
         applyMigrations(db);
         assert.deepEqual(db.prepare('SELECT * FROM schema_migrations WHERE version<=5 ORDER BY version').all(), ledger);
-        assert.equal(store.readStatus().schemaVersion, 8);
+        assert.equal(store.readStatus().schemaVersion, 9);
         assert.deepEqual(runtime.evidence.show(f.courseId, outcome.evidence!.id), audit);
         assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
     }

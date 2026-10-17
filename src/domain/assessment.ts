@@ -5,6 +5,8 @@ export const assistanceLevels = ['none', 'minimal', 'guided', 'worked_solution',
 export const noveltyTypes = ['repeated', 'isomorphic', 'near_transfer', 'far_transfer', 'authentic'] as const;
 export const representations = ['text', 'symbolic', 'numeric', 'code', 'table', 'graph', 'diagram', 'mixed'] as const;
 export const origins = ['manual', 'curriculum_generated', 'source_derived', 'imported'] as const;
+// Keep origins frozen: migration 5 uses that historical vocabulary.
+export const currentOrigins = [...origins, 'review_generated'] as const;
 export type Normalization = 'exact' | 'trim' | 'trim_lowercase';
 export type ScoringSpec = {
     readonly kind: 'text';
@@ -39,7 +41,7 @@ export interface TaskInput {
     readonly intendedDimensions: readonly typeof dimensions[number][];
     readonly representation: typeof representations[number];
     readonly novelty: typeof noveltyTypes[number];
-    readonly origin: typeof origins[number];
+    readonly origin: typeof currentOrigins[number];
     readonly prompt: string;
     readonly scoring: ScoringSpec;
     readonly sourceRefs: readonly SourceRef[];

@@ -1,6 +1,6 @@
-# Personal learning engine — M4 assessment and evidence foundation
+# Personal learning engine — M8 review and spacing
 
-This repository provides durable courses, versioned sources, curriculum graphs and immutable assessment/evidence history through Pi. Models propose results; application services validate durable writes. Teaching and learner-model features await later milestone approval.
+This repository provides durable courses, versioned sources, curriculum graphs, assessment/evidence history, bounded diagnosis/teaching, learner-state projections and a review queue through Pi. Models propose content; application services own durable writes. M4 owns performance, M7 interprets learner state, and M8 schedules future observations.
 
 The authoritative product specification is [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md). Approved refinements and engineering choices are in [docs/APPROVED_DECISIONS.md](docs/APPROVED_DECISIONS.md).
 
@@ -35,7 +35,7 @@ This uses the pinned local Pi executable and `.pi/extensions/index.ts`. Accept P
 
 The command displays the schema version, SQLite version, and FTS5 availability. It does not need a model call. Normal AI conversation requires separately configured Pi provider credentials; never put credentials in this repository.
 
-Database initialization occurs on `session_start`, creating `_learning/learning.db`. `_learning/` is ignored by Git. Migration 5 adds immutable assessment tasks, attempts, evaluations and evidence beside courses, versioned sources and curriculum graphs. No learner-model schema exists yet. Extensions run with the current user's permissions; the path checks are not an operating-system sandbox.
+Database initialization occurs on `session_start`, creating `_learning/learning.db`. `_learning/` is ignored by Git. Migrations 1–9 preserve course/source/curriculum and M4 performance history, M5/M6 workflows, M7 learner-state/gaps and M8 review schedules. Extensions run with the current user's permissions; the path checks are not an operating-system sandbox.
 
 ## Courses
 
@@ -236,7 +236,7 @@ Select an active course with an activated curriculum first. The default budget i
 
 M5 uses M4's deterministic text/choice/numeric/set graders. It does not grade open explanations. Submission feedback is neutral, without correctness, answers or teaching interventions. Final summaries are available after completion or abandonment. An abandoned session preserves history and produces no frontier recommendation. Completed summaries are immutable as-of snapshots; later M4 corrections remain visible through audit without rewriting that snapshot. M4 audit commands can still expose full assessment records when explicitly requested.
 
-Migration 6 adds diagnostic state and links; migrations 1–5 and package dependencies are unchanged. SQLite remains canonical. There is no durable mastery/readiness state, gap system, review scheduler, teaching engine, web UI or OpenClaw. See [docs/M5_VALIDATION.md](docs/M5_VALIDATION.md) for checks, limitations and isolated synthetic acceptance.
+Migration 6 adds diagnostic state and links; migrations 1–5 and package dependencies are unchanged. SQLite remains canonical. M5 itself introduces no durable mastery/readiness, gaps or review scheduling; those belong to later sections. There is no web UI or OpenClaw. See [docs/M5_VALIDATION.md](docs/M5_VALIDATION.md) for checks, limitations and isolated synthetic acceptance.
 
 ## M6 teaching
 
@@ -289,6 +289,36 @@ Instructionally ready means prerequisites permit beginning instruction. Provisio
 
 Gap escrow records meaningful single-concept scored failures, including failures despite assistance. Assisted or same-item success can start repair. Independent changed-case success moves into AWAITING_VERIFICATION; another independent changed check at least 24 hours later can close it. New failure resets an active gap; failure after verified closure creates a linked recurrence. Corrections can remove an obsolete gap from current state without deleting prior beliefs or M4 evidence.
 
-M5 diagnostic labels and M6 teaching completion do not grant competence. Unscored teach-back cannot establish structural support, assisted performance is not independent, and AI-performed output cannot supply competence or close gaps. Exact reused tasks/prompts cannot verify delay or supply new positive transfer merely by retaining an old novelty label. Eligibility timestamps are verification gates, not review due dates: **M8 scheduling has not begun**.
+M5 diagnostic labels and M6 teaching completion do not grant competence. Unscored teach-back cannot establish structural support, assisted performance is not independent, and AI-performed output cannot supply competence or close gaps. Exact reused tasks/prompts cannot verify delay or supply new positive transfer merely by retaining an old novelty label. M7 eligibility timestamps remain verification gates. M8 uses them to schedule future observations without changing M7 rules.
 
 See [M7 validation](docs/M7_VALIDATION.md) for the exact policies, schema, demonstrations, limitations and complete review inventory.
+
+## M8 review and spacing
+
+Select an active course/curriculum, then use:
+
+```text
+/review
+/review next
+/review answer review-<UUID> {"response":"answer\ncode or symbols"}
+/review retry review-<UUID>
+/review status
+/review history 10
+/review show review-<UUID>
+```
+
+The queue shows eligible due/overdue items, upcoming dates and gaps needing repair. It displays at most 10 per group by default; history accepts 1–50. Review kinds are delayed verification, gap verification and maintenance. M7 provides delayed/gap eligibility timestamps; next cannot select them early. OPEN/REPAIR gaps go through teaching, not scheduled gap verification. Repeated next resumes one unresolved course review, even after restart. Re-select the course after restarting Pi.
+
+Maintenance uses evidence-spacing-v1: **3 → 7 → 14 → 30 → 60 days**, continuing at 60 days. Only qualifying independent scored success advances one stage. Assisted, AI, partial, ambiguous or unscored work does not advance it; a still-relevant review requirement gets an independent opportunity after 24h, subject to M7's stricter gate. Failure is recorded in M4 and interpreted by M7. Regaining durability after difficulty starts maintenance at stage zero. Overdue means an observation is late, not that knowledge has decayed. Time and self-report never complete reviews or create evidence.
+
+Queue priority is overdue gap, due gap, overdue delayed, due delayed, overdue maintenance, due maintenance. Greater lateness takes precedence within a class; equivalent candidates interleave concepts, dimensions, task types and representations with stable ties. Maintenance rotates among the actual profile's required dimensions, preferring the least recently independently demonstrated. The scheduler is deterministic; there is no forgetting probability, mastery score or claim of official FSRS.
+
+A review generates one immutable M4 task only when selected. Content comes from stored exact M3 source/research provenance, with no new retrieval. Hidden scoring fields stay out of the review display. Use JSON responses to preserve spaces, symbols and multiline code. Optional assistance/hint metadata must describe actual help; review does not supply hints or worked solutions itself. Use /teach for repair.
+
+The generator runs in a separate Pi session with only propose_review_task. It cannot choose concepts, due dates, dimensions, stages, assistance outcomes or learner state. Structural validation rejects unknown control fields, invented provenance and normalized prompt repeats; it cannot prove semantic novelty or factual quality. Closed M4 text/choice/numeric/set graders are used; open explanation grading is unavailable. Structural understanding requires structured scoring, never exact-text grading of an explanation. Missing usable grounding is audited as no_evaluable_review_task and does not block another due candidate; transient provider failure remains retryable.
+
+M4 attempts/evaluations/evidence persist before M7 refresh and M8 reconciliation. A failed evaluator retains the same attempt for explicit retry. A later refresh repairs incomplete links; an M7 failure never advances a stale schedule. Completed items keep their original constraints, dates and performance links; corrections affect future reconciliation through current terminal heads. Old curriculum history remains intact, while new tasks use the active version. Only explicitly reused stable IDs carry compatible review history.
+
+Migration 9 is additive. It adds review identity/progress/events/outcomes/reconciliation and an immutable review_generated task-origin extension; original source-derived/curriculum-generated origin metadata remains intact. Migrations 1–8 and package dependencies are unchanged. The M7 read-only competence timeline identifies the qualifying durability event using its existing policies, without publishing state or changing mastery semantics.
+
+No background jobs, notifications, web UI, question bank, new research, dependency or M9 feature is included. See [M8 validation](docs/M8_VALIDATION.md) for test coverage, synthetic acceptance, recovery limits and the full review inventory.

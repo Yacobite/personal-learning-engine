@@ -1,4 +1,4 @@
-import { AssessmentError, assistanceLevels, dimensions, isAssessmentId, noveltyTypes, origins, representations, taskTypes } from './assessment.ts';
+import { AssessmentError, assistanceLevels, dimensions, isAssessmentId, noveltyTypes, currentOrigins, representations, taskTypes } from './assessment.ts';
 import type { TaskInput, Submission, ScoringSpec, Normalization, EvaluatorIdentity, EvaluationProposal } from './assessment.ts';
 import { isConceptId, requireVersion } from './curriculum.ts';
 import { isSourceId } from './source.ts';
@@ -82,7 +82,8 @@ export function validateTask(value: unknown): TaskInput {
     one(v.type, taskTypes);
     one(v.representation, representations);
     one(v.novelty, noveltyTypes);
-    one(v.origin, origins);
+    one(v.origin, currentOrigins);
+    if (v.origin === 'review_generated' && !((v.sourceRefs as unknown[])?.length || (v.researchRefs as unknown[])?.length)) fail();
     text(v.prompt, 16000);
     validateScoring(v.scoring);
     const refs = list(v.sourceRefs, 20);

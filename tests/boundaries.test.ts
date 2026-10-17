@@ -110,3 +110,15 @@ test('M5 generator and deterministic evaluator cannot import repository or mutat
   assert.doesNotMatch(readFileSync(join(sourceRoot, 'domain', 'teaching-policy.ts'), 'utf8'), /Date\(|Math\.random|fetch\(|process\./);
   assert.equal(typescriptFiles(join(sourceRoot, 'services')).some(path => /mastery|review-scheduler/.test(path)), false);
 });
+
+
+test('M8 policies have no ambient time or infrastructure; generator and scheduler cannot mutate learner state or evaluate answers', () => {
+  for (const name of ['review.ts','review-schedule-policy.ts','review-queue-policy.ts','review-task-policy.ts']) {
+    const content=readFileSync(join(sourceRoot,'domain',name),'utf8');
+    assert.doesNotMatch(content,/Date\.now|new Date\(\s*\)|Math\.random|fetch\(|process\./);
+  }
+  const service=readFileSync(join(sourceRoot,'services','review-service.ts'),'utf8');
+  assert.doesNotMatch(service,/correctness\s*=|VERIFIED_CLOSED|gapProjection|dimensionStates|readinessProjection/);
+  const generator=readFileSync(join(sourceRoot,'runtime','pi','review-generator.ts'),'utf8');
+  assert.doesNotMatch(generator,/persistence|repository|assessment-service|evaluation-service|learner-state-service|review-service/);
+});

@@ -3,7 +3,7 @@ import { observations, dimensionStates } from '../domain/evidence-state-policy.t
 import { gapKey, gapProjection } from '../domain/gap-policy.ts';
 import { readinessProjection } from '../domain/readiness-policy.ts';
 import { learnerPolicies, learnerId, LearnerStateError, timestamp } from '../domain/learner-state.ts';
-import type { GapIdentity, LearnerStateRevision } from '../domain/learner-state.ts';
+import type { GapIdentity, LearnerStateRevision, Stage } from '../domain/learner-state.ts';
 import type { LearnerLedger } from '../ports/learner-ledger.ts';
 import type { LearnerStateRepository } from '../ports/learner-state-repository.ts';
 import type { GraphService } from './graph-service.ts';
@@ -55,6 +55,32 @@ export class LearnerStateService {
         throw new LearnerStateError('State revision not found in this course.'); return r; }
     current(courseId: string, version?: number) { const graph = this.graphs.get(courseId, version); return this.repo.current(courseId, graph.version); }
     history(courseId: string) { this.graphs.get(courseId); return this.repo.history(courseId); }
+    /** Read-only replay under the selected revision's terminal evaluations/profile.
+     * This is an evidence-time timeline, not a history of old grading beliefs.
+     * It reuses the M7 policies verbatim and publishes no revisions/gap identities.
+     */
+    competenceTimeline(courseId: string, conceptId: string, revisionId: string): { at: string; attemptId: string; stage: Stage }[] {
+        const revision = this.revision(courseId, revisionId);
+        const graph = this.graphs.get(courseId, revision.curriculumVersion);
+        if (!graph.nodes.some(n => n.conceptId === conceptId)) throw new LearnerStateError('Concept absent from this curriculum.');
+        const observed = revision.observations;
+        const registry = new Map(revision.gaps.map(g => [gapKey(g.conceptId, g.dimension, g.triggerAttemptId), g]));
+        const result: { at: string; attemptId: string; stage: Stage }[] = [];
+        for (const [index, event] of observed.entries()) {
+            if (!event.conceptIds.includes(conceptId)) continue;
+            const prefix = observed.slice(0, index + 1);
+            const gaps = graph.nodes.flatMap(node => gapProjection(courseId, node.conceptId, prefix.filter(o => o.conceptIds.length === 1 && o.conceptIds[0] === node.conceptId), (id, dimension, trigger) => {
+                const key = gapKey(id, dimension, trigger);
+                const identity = registry.get(key);
+                if (!identity) throw new LearnerStateError('Revision is missing a projected gap identity.');
+                return identity;
+            }));
+            const states = graph.nodes.flatMap(node => dimensionStates(node.conceptId, prefix.filter(o => o.conceptIds.includes(node.conceptId)), gaps.filter(g => g.conceptId === node.conceptId)));
+            const stage = readinessProjection(graph, states, gaps, prefix).find(r => r.conceptId === conceptId)!.stage;
+            if (stage !== result.at(-1)?.stage) result.push({ at: event.at, attemptId: event.attemptId, stage });
+        }
+        return result;
+    }
     conceptState(courseId: string, conceptId: string, version?: number) { const revision = this.refresh(courseId, version); const report = revision.readiness.find(r => r.conceptId === conceptId); if (!report)
         throw new LearnerStateError('Concept absent from this curriculum.'); return { revisionId: revision.id, curriculumVersion: revision.curriculumVersion, asOf: revision.asOf, report, dimensions: revision.dimensions.filter(d => d.conceptId === conceptId), gaps: revision.gaps.filter(g => g.conceptId === conceptId) }; }
 }

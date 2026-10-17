@@ -4,6 +4,7 @@ import { curriculumMigration } from './migration-4.ts';
 import { assessmentMigration } from './migration-5.ts';
 import { diagnosticMigration } from './migration-6.ts';
 import { teachingMigration } from './migration-7.ts';
+import { reviewMigration } from './migration-9.ts';
 import { learnerStateMigration } from './migration-8.ts';
 
 export interface Migration {
@@ -95,6 +96,7 @@ export const migrations: readonly Migration[] = [
   diagnosticMigration,
   teachingMigration,
   learnerStateMigration,
+  reviewMigration,
 ];
 
 function checksum(migration: Migration): string {

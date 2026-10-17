@@ -11,6 +11,7 @@ import { SqliteResearchRepository } from './research-repository.ts';
 import { SqliteAssessmentRepository } from './assessment-repository.ts';
 import { SqliteDiagnosticRepository } from './diagnostic-repository.ts';
 import { SqliteTeachingRepository } from './teaching-repository.ts';
+import { SqliteReviewRepository } from './review-repository.ts';
 import { SqliteLearnerLedger } from './learner-ledger.ts';
 import { SqliteLearnerStateRepository } from './learner-state-repository.ts';
 
@@ -38,6 +39,7 @@ export class SqliteFoundationStore implements FoundationStore {
   readonly assessments: SqliteAssessmentRepository;
   readonly diagnostics: SqliteDiagnosticRepository;
   readonly teaching: SqliteTeachingRepository;
+  readonly reviews: SqliteReviewRepository;
   readonly learnerLedger: SqliteLearnerLedger;
   readonly learnerState: SqliteLearnerStateRepository;
   private readonly database: DatabaseSync;
@@ -52,6 +54,7 @@ export class SqliteFoundationStore implements FoundationStore {
     this.assessments = new SqliteAssessmentRepository(database);
     this.diagnostics = new SqliteDiagnosticRepository(database);
     this.teaching = new SqliteTeachingRepository(database);
+    this.reviews = new SqliteReviewRepository(database);
     this.learnerLedger = new SqliteLearnerLedger(database);
     this.learnerState = new SqliteLearnerStateRepository(database);
   }

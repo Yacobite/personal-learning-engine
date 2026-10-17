@@ -33,6 +33,8 @@ import { TeachingContextBuilder } from '../../src/services/teaching-context.ts';
 import { LearnerStateService } from '../../src/services/learner-state-service.ts';
 import { ReadinessService } from '../../src/services/readiness-service.ts';
 import { GapService } from '../../src/services/gap-service.ts';
+import { ReviewService } from '../../src/services/review-service.ts';
+import { registerReview } from '../../src/runtime/pi/register-review.ts';
 import { registerLearnerState } from '../../src/runtime/pi/register-learner-state.ts';
 
 /** Composition root only: construct adapters and bind the session lifecycle. */
@@ -49,6 +51,7 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   let evidence: EvidenceService | undefined;
   let diagnostics: DiagnosticService | undefined;
   let teaching: TeachingService | undefined;
+  let reviews: ReviewService | undefined;
   let state: LearnerStateService | undefined;
   let readiness: ReadinessService | undefined;
   let gaps: GapService | undefined;
@@ -69,6 +72,7 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     evidence = undefined;
     diagnostics = undefined;
     teaching = undefined;
+    reviews = undefined;
     state = undefined;
     readiness = undefined;
     gaps = undefined;
@@ -93,6 +97,11 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     evidence = new EvidenceService(courseService, store.assessments, store.graphs);
     diagnostics = new DiagnosticService(store.diagnostics, store.assessments, graphService, assessments, evaluations,
       new DiagnosticContextBuilder(store.sources, store.research), (prefix) => `${prefix}-${randomUUID()}`, () => new Date());
+    state = new LearnerStateService(store.learnerState, store.learnerLedger, graphService, prefix => `${prefix}-${randomUUID()}`, hash, () => new Date());
+    readiness = new ReadinessService(state);
+    gaps = new GapService(state);
+    reviews = new ReviewService(store.reviews, store.assessments, graphService, assessments, evaluations, state,
+      new TeachingContextBuilder(store.sources, store.research), () => `review-${randomUUID()}`, hash, () => new Date());
     teaching = new TeachingService(store.teaching, store.diagnostics, store.assessments, graphService, assessments, evaluations,
       new TeachingContextBuilder(store.sources, store.research), (prefix) => `${prefix}-${randomUUID()}`, () => new Date());
   });
@@ -120,6 +129,10 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   registerDiagnostic(pi, () => {
     if (!courseService || !assessments || !diagnostics) throw new Error('Diagnostic session has not started.');
     return { courses: courseService, selection, assessments, diagnostics };
+  });
+  registerReview(pi, () => {
+    if (!courseService || !assessments || !reviews) throw new Error('Review session has not started.');
+    return { courses: courseService, selection, assessments, reviews };
   });
   registerLearnerState(pi, () => {
     if (!courseService || !state || !readiness || !gaps) throw new Error('Learner-state session has not started.');

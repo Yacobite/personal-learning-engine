@@ -27,7 +27,8 @@ export class SqliteAssessmentRepository implements AssessmentRepository, Diagnos
             for (const r of t.researchRefs)
                 this.db.prepare('INSERT INTO task_research_provenance VALUES (?,?,?,?)').run(t.id, t.courseId, r.briefId, r.referenceId);
             this.db.prepare('INSERT INTO assessment_tasks(id,course_id,curriculum_version,type,representation,novelty,origin,prompt,dimensions_json,scoring_json,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-                .run(t.id, t.courseId, t.curriculumVersion, t.type, t.representation, t.novelty, t.origin, t.prompt, JSON.stringify(t.intendedDimensions), JSON.stringify(t.scoring), t.createdAt);
+                .run(t.id, t.courseId, t.curriculumVersion, t.type, t.representation, t.novelty, t.origin === 'review_generated' ? (t.sourceRefs.length ? 'source_derived' : 'curriculum_generated') : t.origin, t.prompt, JSON.stringify(t.intendedDimensions), JSON.stringify(t.scoring), t.createdAt);
+            if (t.origin === 'review_generated') this.db.prepare("INSERT INTO review_task_origins VALUES (?,?,'review_generated')").run(t.id,t.courseId);
             link?.();
         });
     }
@@ -35,7 +36,7 @@ export class SqliteAssessmentRepository implements AssessmentRepository, Diagnos
         const r = this.db.prepare('SELECT * FROM assessment_tasks WHERE course_id=? AND id=?').get(courseId, id);
         if (!r)
             return;
-        return { id, courseId, curriculumVersion: Number(r.curriculum_version), type: String(r.type) as AssessmentTask['type'], representation: String(r.representation) as AssessmentTask['representation'], novelty: String(r.novelty) as AssessmentTask['novelty'], origin: String(r.origin) as AssessmentTask['origin'], prompt: String(r.prompt), createdAt: String(r.created_at),
+        return { id, courseId, curriculumVersion: Number(r.curriculum_version), type: String(r.type) as AssessmentTask['type'], representation: String(r.representation) as AssessmentTask['representation'], novelty: String(r.novelty) as AssessmentTask['novelty'], origin: (this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='review_task_origins'").get() && this.db.prepare('SELECT 1 FROM review_task_origins WHERE task_id=?').get(id) ? 'review_generated' : String(r.origin)) as AssessmentTask['origin'], prompt: String(r.prompt), createdAt: String(r.created_at),
             scoring: JSON.parse(String(r.scoring_json)) as AssessmentTask['scoring'], intendedDimensions: JSON.parse(String(r.dimensions_json)) as AssessmentTask['intendedDimensions'],
             conceptIds: this.db.prepare('SELECT concept_id FROM task_concepts WHERE task_id=? ORDER BY concept_id').all(id).map((x) => String(x.concept_id)),
             sourceRefs: this.db.prepare('SELECT * FROM task_source_provenance WHERE task_id=? ORDER BY segment_id').all(id).map((x) => ({ sourceId: String(x.source_id), version: Number(x.source_version), segmentId: String(x.segment_id) })),
