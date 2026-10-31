@@ -65,6 +65,22 @@ export class SqliteFoundationStore implements FoundationStore {
     this.learnerState = new SqliteLearnerStateRepository(database);
   }
 
+  /** Synchronous, read-only projection snapshot; the caller has only inward read capabilities. */
+  readSnapshot<T>(read: () => T): T {
+    const previous = this.database.prepare('PRAGMA query_only').get()!.query_only;
+    let started = false;
+    this.database.exec('PRAGMA query_only = ON');
+    try {
+      if (!this.database.isTransaction) { this.database.exec('BEGIN'); started = true; }
+      const value = read();
+      if (started) this.database.exec('COMMIT');
+      return value;
+    } catch (error) {
+      if (started && this.database.isTransaction) this.database.exec('ROLLBACK');
+      throw error;
+    } finally { this.database.exec(previous === 1 ? 'PRAGMA query_only = ON' : 'PRAGMA query_only = OFF'); }
+  }
+
   readStatus(): FoundationStatus {
     const schema = this.database.prepare('SELECT MAX(version) AS version FROM schema_migrations').get();
     const sqlite = this.database.prepare('SELECT sqlite_version() AS version').get();

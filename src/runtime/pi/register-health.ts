@@ -10,6 +10,7 @@ TEACHING: /teach start|next|answer|hint|retry|status|summary|audit|history|aband
 AUDIT: /attempt show|evaluations; /evidence recent|show|concept
 STATE: /state; /readiness; /gaps (evidence-driven estimates)
 REVIEW: /review; /review next|answer|retry|status|history|show
+WORKSPACE: /obsidian init|sync|status|path|enrich <concept-id|all>
 HEALTH: /learning-status; /learning-doctor; /learning-help
 Flow: choose course → add sources OR build supported generated curriculum → inspect/activate → diagnose if appropriate → teach → inspect readiness/gaps → review when due.
 Generation needs a configured model; inspection, local grading and queues do not. Python research is bounded to approved official-documentation seeds. No semantic teach-back grading or automatic mastery.

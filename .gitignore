@@ -9,3 +9,29 @@ coverage/
 sources/inbox/*
 !sources/inbox/.gitkeep
 sources/courses/
+# Keep all learner material private; commit only the explicit public demo.
+sources/*
+!sources/inbox/
+!sources/examples/
+sources/examples/*
+!sources/examples/boolean-logic.md
+
+# Local databases, credentials, logs and generated review artifacts
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.pem
+*.key
+.pi/*
+!.pi/extensions/
+obsidian-v1-review.diff
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -38,6 +38,9 @@ import { ReadinessService } from '../../src/services/readiness-service.ts';
 import { GapService } from '../../src/services/gap-service.ts';
 import { ReviewService } from '../../src/services/review-service.ts';
 import { registerReview } from '../../src/runtime/pi/register-review.ts';
+import { CanonicalObsidianReader } from '../../src/services/obsidian-projection-reader.ts';
+import { ObsidianExportService } from '../../src/exports/obsidian/obsidian-export-service.ts';
+import { registerObsidian } from '../../src/runtime/pi/register-obsidian.ts';
 import { registerLearnerState } from '../../src/runtime/pi/register-learner-state.ts';
 
 /** Composition root only: construct adapters and bind the session lifecycle. */
@@ -60,6 +63,8 @@ export default function learningFoundation(pi: ExtensionAPI): void {
   let state: LearnerStateService | undefined;
   let readiness: ReadinessService | undefined;
   let gaps: GapService | undefined;
+  let obsidian: ObsidianExportService | undefined;
+  let obsidianFactory: (() => ObsidianExportService) | undefined;
   const selection = new CourseSession();
 
   const close = (): void => {
@@ -82,6 +87,8 @@ export default function learningFoundation(pi: ExtensionAPI): void {
     state = undefined;
     readiness = undefined;
     gaps = undefined;
+    obsidian = undefined;
+    obsidianFactory = undefined;
   };
 
   pi.on('session_start', (_event, ctx) => {
@@ -111,8 +118,15 @@ export default function learningFoundation(pi: ExtensionAPI): void {
       new TeachingContextBuilder(store.sources, store.research), () => `review-${randomUUID()}`, hash, () => new Date());
     teaching = new TeachingService(store.teaching, store.diagnostics, store.assessments, graphService, assessments, evaluations,
       new TeachingContextBuilder(store.sources, store.research), (prefix) => `${prefix}-${randomUUID()}`, () => new Date());
+    const projectionStore = store;
+    obsidianFactory = () => new ObsidianExportService(ctx.cwd, new CanonicalObsidianReader(projectionStore, new TeachingContextBuilder(projectionStore.sources, projectionStore.research), read => projectionStore.readSnapshot(read), () => new Date()));
   });
   pi.on('session_shutdown', close);
+  registerObsidian(commands, () => {
+    if (!obsidianFactory || !courseService) throw new Error('Learning database has not started.');
+    obsidian ??= obsidianFactory();
+    return { exports: obsidian, courses: courseService, selection };
+  });
   registerHealth(commands, () => {
     if (!health || !courseService) throw new Error('Learning database has not started.');
     const active = selection.current(courseService);
